@@ -1,13 +1,20 @@
-# 🃏 Mateo — Juego de Cartas Retro
+# 🃏 Mateo — Juego de Cartas Retro Multijugador
 
-MVP web del juego de cartas argentino **Mateo**: memoria, estrategia y agilidad mental. 4 jugadores en la misma pantalla (hot-seat), con UI estilo retro arcade, sonidos generados con Web Audio y animaciones CSS.
+Juego web del clásico argentino **Mateo**: memoria, estrategia y agilidad mental. **Multijugador online en tiempo real** (2–4 jugadores, cada uno desde su dispositivo), con UI estilo retro arcade, sonidos generados con Web Audio y animaciones CSS.
 
 **▶ Jugar:** https://mgeovany.github.io/mateo-game/
 
+## 🌐 Multijugador
+
+- Un jugador pulsa **CREAR PARTIDA** y obtiene un **código de sala de 4 caracteres**.
+- Los demás entran con **UNIRSE** usando ese código.
+- Cada jugador **solo ve sus propias cartas** — el anfitrión actúa como servidor autoritativo y envía a cada dispositivo un estado censurado.
+- Conexión P2P vía WebRTC ([PeerJS](https://peerjs.com/)) — no requiere backend propio, funciona desde GitHub Pages.
+
 ## 🎮 Cómo se juega
 
-- 4 jugadores reciben **4 cartas boca abajo**. Al inicio cada uno elige **2 cartas para ver y memorizar**, luego pulsa **LISTO**. Cuando todos están listos, comienza el juego.
-- Los jugadores están sentados en círculo; el banner verde indica **de quién es el turno**.
+- Cada jugador recibe **4 cartas boca abajo**. Al inicio toca **2 cartas para verlas y memorizarlas**, luego pulsa **CONFIRMAR**. Cuando todos confirman, comienza el juego.
+- Los jugadores están sentados en círculo (tú siempre abajo); el banner indica de quién es el turno y solo ese jugador puede actuar.
 
 ### En tu turno
 
@@ -20,15 +27,15 @@ MVP web del juego de cartas argentino **Mateo**: memoria, estrategia y agilidad 
 
 ### 🔥 Quemar
 
-Cualquier jugador puede intentar **quemar** la carta del descarte si recuerda tener una del mismo número. Si acierta, se deshace de ella. Si falla: recupera su carta **y roba una más de castigo**.
+Cualquier jugador puede intentar **quemar** la carta del descarte si recuerda tener una del mismo número — desde su propio dispositivo, en cualquier momento del turno. Si acierta, se deshace de ella. Si falla: recupera su carta **y roba una más de castigo**.
 
 ### Cartas especiales
 
 | Carta | Efecto |
 |---|---|
 | **Q♥** | Comodín absoluto: vale **0** |
-| **7** | Ver una de tus cartas |
-| **8** | Ver una carta de otro jugador |
+| **7** | Ver una de tus cartas (solo tú la ves) |
+| **8** | Ver una carta de otro jugador (solo tú la ves) |
 | **9** | Intercambiar una carta tuya con otro jugador, sin verlas |
 
 ### 📣 Gritar Mateo
@@ -45,25 +52,30 @@ El juego continúa en rondas. **Pierde** el primero en llegar a **100 puntos**. 
 
 ## 🛠 Stack
 
-- HTML + CSS + JavaScript vanilla, sin dependencias ni build.
+- HTML + CSS + JavaScript vanilla, sin build ni frameworks.
+- Multijugador WebRTC con PeerJS (host autoritativo, estado censurado por jugador).
 - Sonidos sintetizados en tiempo real con **Web Audio API** (sin archivos de audio).
 - Animaciones CSS (reparto, flip 3D, quemado, shake, glow neón) y estética CRT con scanlines.
 
-## 🚀 Correr local
+## 🚀 Desarrollo
 
 ```bash
-# cualquier servidor estático sirve
-npx serve .
-# o simplemente abrir index.html en el navegador
+pnpm i
+pnpm dev          # sirve en http://localhost:5173
+pnpm test:engine  # smoke test del motor de juego (Node)
+pnpm test:e2e     # e2e multijugador con 2 navegadores headless (requiere Chrome)
 ```
 
 ## Estructura
 
 ```
-index.html      # pantallas: lobby, mesa, puntajes
+index.html      # pantallas: lobby, sala de espera, mesa, puntajes
 css/style.css   # tema retro neón + animaciones
-js/cards.js     # mazo, valores (Q♥ = 0)
-js/game.js      # máquina de estados del juego
-js/ui.js        # render, interacciones, animaciones
+js/cards.js     # mazo y valores (Q♥ = 0)
+js/game.js      # máquina de estados del juego (corre en el host)
+js/host.js      # autoridad: valida acciones y censura el estado por jugador
+js/net.js       # capa P2P (PeerJS)
+js/ui.js        # render por dispositivo, interacciones, sonidos
 js/audio.js     # efectos de sonido Web Audio
+test/           # tests de motor y e2e
 ```

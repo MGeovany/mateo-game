@@ -1,16 +1,23 @@
-/* ============ UI: rendering, interactions, animations, sounds ============ */
+/* ============ UI: snapshot-driven rendering for one player's device ============
+ * The host sends each device a redacted snapshot: other players' cards arrive
+ * as null (face down). Your own seat is always rendered at the bottom.
+ */
 const UI = (() => {
   const $ = (sel) => document.querySelector(sel);
-  const S = Game.state;
 
-  let revealed = new Set(); // keys "player-card" currently face up
-  let revealAll = false;
-  let busy = false;         // input locked during timed animations
-  let modalOpen = false;
+  let snap = null;       // latest state snapshot from the host
+  let myIdx = -1;
+  let myName = '';
+  let roomCode = '';
+  let swapMode = false;  // chose "CAMBIAR": pick one of your cards
+  let lastPhase = '';
   let lastTurn = -1;
+  let started = false;
+  let msgOverride = null; // { text, until }
 
   const screens = {
     lobby: $('#screen-lobby'),
+    wait: $('#screen-wait'),
     game: $('#screen-game'),
     score: $('#screen-score'),
   };
@@ -20,119 +27,126 @@ const UI = (() => {
     screens[name].classList.add('active');
   }
 
-  const key = (p, i) => `${p}-${i}`;
+  // Seat positions clockwise from your own seat (always bottom)
+  const SEAT_LAYOUT = {
+    2: ['bottom', 'top'],
+    3: ['bottom', 'left', 'right'],
+    4: ['bottom', 'left', 'top', 'right'],
+  };
+
+  function seatFor(playerIdx) {
+    const n = snap.players.length;
+    const rel = (playerIdx - myIdx + n) % n;
+    return $(`.seat[data-pos="${SEAT_LAYOUT[n][rel]}"]`);
+  }
+
+  /* ---------- dispatch: local for host, network for guests ---------- */
+  function send(action) {
+    if (Net.isHost) Host.handleAction(myIdx, action);
+    else Net.sendToHost({ t: 'action', ...action });
+  }
 
   /* ---------- card element ---------- */
-  function cardEl(card, faceUp) {
+  function cardEl(card) {
     const el = document.createElement('div');
-    el.className = 'card' + (faceUp ? ' flipped' : '');
+    el.className = 'card' + (card ? ' flipped' : '');
     const back = document.createElement('div');
     back.className = 'back';
-    const face = document.createElement('div');
-    face.className = 'face' + (isRedSuit(card.suit) ? ' red' : '');
-    face.innerHTML =
-      `<span class="corner">${card.rank}<br>${card.suit}</span>` +
-      `<span class="rank">${card.rank}</span><span class="suit">${card.suit}</span>` +
-      `<span class="corner-b">${card.rank}<br>${card.suit}</span>`;
     el.appendChild(back);
-    el.appendChild(face);
+    if (card) {
+      const face = document.createElement('div');
+      face.className = 'face' + (isRedSuit(card.suit) ? ' red' : '');
+      face.innerHTML =
+        `<span class="corner">${card.rank}<br>${card.suit}</span>` +
+        `<span class="rank">${card.rank}</span><span class="suit">${card.suit}</span>` +
+        `<span class="corner-b">${card.rank}<br>${card.suit}</span>`;
+      el.appendChild(face);
+    }
     return el;
   }
 
-  /* ---------- selectable logic per phase ---------- */
+  /* ---------- what can I click? ---------- */
   function isSelectable(p, i) {
-    if (busy || modalOpen) return false;
-    const me = S.current;
-    switch (S.phase) {
+    if (!snap || modalVisible()) return false;
+    const me = snap.you;
+    const isCurrent = snap.current === me;
+    switch (snap.phase) {
       case 'peek': {
-        const pl = S.players[p];
-        return !pl.ready && pl.peeked.size < 2 && !pl.peeked.has(i);
+        const pl = snap.players[me];
+        return p === me && !pl.ready && pl.peeked < 2 && !snap.players[me].hand[i];
       }
       case 'drawn':
+        return isCurrent && p === me && swapMode;
       case 'swapDiscard':
-        return p === me;
+        return isCurrent && p === me;
       case 'combine':
-        return p === me && !S.ctx.combinePicks.includes(i);
+        return isCurrent && p === me && !(snap.ctx.combinePicks || []).includes(i);
       case 'power7':
       case 'power9a':
-        return p === me;
+        return isCurrent && p === me;
       case 'power8':
       case 'power9b':
-        return p !== me;
+        return isCurrent && p !== me;
       case 'burn':
-        return p === S.ctx.burner;
+        return snap.ctx.burner === me && p === me;
       default:
         return false;
     }
   }
 
+  function modalVisible() {
+    return !$('#drawn-modal').classList.contains('hidden');
+  }
+
   /* ---------- render ---------- */
   function render() {
-    // Seats
-    S.players.forEach((pl, p) => {
-      const seat = $(`#seat-${p}`);
-      seat.classList.toggle('active-turn',
-        p === S.current && !['peek', 'roundEnd', 'gameOver'].includes(S.phase));
-      seat.querySelector('.player-name').textContent = pl.name.toUpperCase();
-      seat.querySelector('.player-score').textContent = `${pl.score}pts`;
+    if (!snap) return;
+    const inPlay = !['peek', 'roundEnd', 'gameOver'].includes(snap.phase);
+
+    document.querySelectorAll('.seat').forEach((s) => (s.style.display = 'none'));
+    snap.players.forEach((pl, p) => {
+      const seat = seatFor(p);
+      seat.style.display = '';
+      seat.classList.toggle('active-turn', p === snap.current && inPlay);
+      seat.querySelector('.player-name').textContent =
+        (p === myIdx ? '★ ' : '') + pl.name.toUpperCase();
+      seat.querySelector('.player-score').textContent =
+        snap.phase === 'peek' ? (pl.ready ? '✔ LISTO' : '…') : `${pl.score}pts`;
 
       const hand = seat.querySelector('.hand');
       hand.innerHTML = '';
       pl.hand.forEach((card, i) => {
-        const faceUp = revealAll || revealed.has(key(p, i)) || pl.peeked.has(i);
-        const el = cardEl(card, faceUp);
+        const el = cardEl(card);
         if (isSelectable(p, i)) {
           el.classList.add('selectable');
           el.addEventListener('click', () => onCardClick(p, i));
         }
-        if (S.phase === 'combine' && p === S.current && S.ctx.combinePicks.includes(i)) {
+        if (p === myIdx && (snap.ctx.combinePicks || []).includes(i) && snap.phase === 'combine') {
           el.classList.add('selected');
         }
-        if (S.phase === 'power9b' && p === S.current && S.ctx.swapOwn === i) {
+        if (p === myIdx && snap.phase === 'power9b' && snap.ctx.swapOwn === i) {
           el.classList.add('selected');
         }
         hand.appendChild(el);
       });
-
-      // Per-seat buttons
-      const actions = seat.querySelector('.seat-actions');
-      actions.innerHTML = '';
-      if (S.phase === 'peek' && !pl.ready) {
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-success';
-        btn.textContent = '✔ LISTO';
-        btn.addEventListener('click', () => onReady(p));
-        actions.appendChild(btn);
-      } else if (S.phase === 'peek' && pl.ready) {
-        actions.innerHTML = '<span style="font-size:7px;color:var(--neon-green)">✔ LISTO</span>';
-      }
-      if (S.phase === 'turn' && !busy && Game.discardTop() && pl.hand.length > 0) {
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-warn';
-        btn.textContent = '🔥';
-        btn.title = 'Quemar el descarte';
-        btn.addEventListener('click', () => onStartBurn(p));
-        actions.appendChild(btn);
-      }
     });
 
     renderCenter();
     renderBanner();
     renderActions();
     renderMessage();
-    $('#round-indicator').textContent = `RONDA ${S.round}`;
+    $('#round-indicator').textContent = `RONDA ${snap.round} · SALA ${roomCode}`;
   }
 
   function renderCenter() {
-    $('#deck-count').textContent = `(${S.deck.length})`;
-    $('#deck-pile').classList.toggle('clickable', S.phase === 'turn' && !busy);
+    $('#deck-count').textContent = `(${snap.deckCount})`;
+    $('#deck-pile').classList.toggle('clickable',
+      snap.phase === 'turn' && snap.current === myIdx);
 
     const pile = $('#discard-pile');
     pile.innerHTML = '';
-    const top = Game.discardTop();
-    if (top) {
-      const el = cardEl(top, true);
-      pile.appendChild(el);
+    if (snap.discardTop) {
+      pile.appendChild(cardEl(snap.discardTop));
     } else {
       pile.innerHTML = '<div class="pile-empty">DESCARTE</div>';
     }
@@ -141,44 +155,46 @@ const UI = (() => {
     label.textContent = 'DESCARTE';
     pile.appendChild(label);
 
-    // Floating drawn card while selecting (modal closed)
-    let drawnPile = $('#drawn-float');
-    if (drawnPile) drawnPile.remove();
-    if (S.drawn && !modalOpen) {
-      drawnPile = document.createElement('div');
-      drawnPile.className = 'pile';
-      drawnPile.id = 'drawn-float';
-      drawnPile.appendChild(cardEl(S.drawn, true));
+    // Drawn card: face up for the drawer, face down for everyone else
+    let float = $('#drawn-float');
+    if (float) float.remove();
+    if (snap.drawn && !modalVisible()) {
+      float = document.createElement('div');
+      float.className = 'pile';
+      float.id = 'drawn-float';
+      float.appendChild(cardEl(snap.drawn === true ? null : snap.drawn));
       const l = document.createElement('span');
       l.className = 'pile-label';
       l.textContent = 'ROBADA';
-      drawnPile.appendChild(l);
-      $('.table-center').appendChild(drawnPile);
+      float.appendChild(l);
+      $('.table-center').appendChild(float);
     }
   }
 
   function renderBanner() {
     const banner = $('#turn-banner');
-    const inTurn = !['peek', 'roundEnd', 'gameOver', 'lobby'].includes(S.phase);
+    const inTurn = !['peek', 'roundEnd', 'gameOver'].includes(snap.phase);
     banner.classList.toggle('hidden', !inTurn);
-    if (inTurn) {
-      banner.textContent = `▶ TU TURNO: ${Game.currentPlayer().name.toUpperCase()} ◀`;
-      if (lastTurn !== S.current) {
-        lastTurn = S.current;
-        banner.style.animation = 'none';
-        void banner.offsetWidth; // restart pop animation
-        banner.style.animation = '';
-        AudioFX.turn();
-      }
-    } else {
-      lastTurn = -1;
+    if (!inTurn) { lastTurn = -1; return; }
+
+    const mine = snap.current === myIdx;
+    banner.classList.toggle('other-turn', !mine);
+    banner.textContent = mine
+      ? '▶ ¡TU TURNO! ◀'
+      : `TURNO DE ${snap.players[snap.current].name.toUpperCase()}`;
+    if (lastTurn !== snap.current) {
+      lastTurn = snap.current;
+      banner.style.animation = 'none';
+      void banner.offsetWidth;
+      banner.style.animation = '';
+      AudioFX.turn();
     }
   }
 
   function renderActions() {
     const bar = $('#action-bar');
     bar.innerHTML = '';
-    if (busy || modalOpen) return;
+    if (!snap || modalVisible()) return;
 
     const addBtn = (text, cls, fn) => {
       const b = document.createElement('button');
@@ -188,127 +204,130 @@ const UI = (() => {
       bar.appendChild(b);
     };
 
-    if (S.phase === 'turn') {
-      addBtn('🂠 ROBAR', '', onDraw);
-      if (Game.discardTop()) addBtn('⬆ TOMAR DESCARTE', 'btn-small', onTakeDiscard);
-      addBtn('📣 ¡MATEO!', 'btn-danger', onMateo);
+    const me = snap.players[myIdx];
+    const isCurrent = snap.current === myIdx;
+
+    if (snap.phase === 'peek' && !me.ready) {
+      addBtn('✔ CONFIRMAR', 'btn-success', () => { AudioFX.click(); send({ a: 'ready' }); });
     }
-    if (['burn', 'combine', 'power7', 'power8', 'power9a', 'power9b'].includes(S.phase)) {
-      addBtn('✖ CANCELAR', 'btn-small', onCancel);
+    if (snap.phase === 'turn') {
+      if (isCurrent) {
+        addBtn('🂠 ROBAR', '', () => send({ a: 'draw' }));
+        if (snap.discardTop) addBtn('⬆ TOMAR DESCARTE', 'btn-small', () => send({ a: 'takeDiscard' }));
+        addBtn('📣 ¡MATEO!', 'btn-danger', () => send({ a: 'mateo' }));
+      }
+      if (snap.discardTop && me.hand.length > 0) {
+        addBtn('🔥 QUEMAR', 'btn-warn', () => { AudioFX.click(); send({ a: 'burnStart' }); });
+      }
+    }
+    if (snap.phase === 'burn' && snap.ctx.burner === myIdx) {
+      addBtn('✖ CANCELAR', 'btn-small', () => { AudioFX.click(); send({ a: 'cancel' }); });
+    }
+    if (['combine', 'power7', 'power8', 'power9a', 'power9b'].includes(snap.phase) && isCurrent) {
+      addBtn('✖ CANCELAR', 'btn-small', () => { AudioFX.click(); send({ a: 'cancel' }); });
+    }
+    if (snap.phase === 'drawn' && isCurrent && swapMode) {
+      addBtn('✖ VOLVER', 'btn-small', () => { swapMode = false; openDrawnModal(); });
     }
   }
 
   function renderMessage() {
-    const name = S.players.length ? Game.currentPlayer().name.toUpperCase() : '';
-    const msgs = {
-      peek: 'MEMORIZA: cada jugador voltea 2 de sus cartas y pulsa LISTO',
-      turn: `${name}: roba del mazo, toma el descarte, grita MATEO… o cualquiera puede 🔥 quemar`,
-      drawn: 'Elige cuál de tus cartas reemplazar',
-      swapDiscard: 'Tomaste el descarte: elige cuál de tus cartas reemplazar',
-      combine: `COMBINAR: elige las 2 cartas que crees que son ${S.drawn ? S.drawn.rank : ''}`,
-      power7: 'PODER 7: mira una de TUS cartas',
-      power8: 'PODER 8: mira una carta de OTRO jugador',
-      power9a: 'PODER 9: elige una carta TUYA para intercambiar',
-      power9b: 'PODER 9: ahora elige la carta de OTRO jugador',
-      burn: S.ctx.burner != null
-        ? `🔥 ${S.players[S.ctx.burner].name.toUpperCase()}: elige tu carta a quemar (¿es un ${Game.discardTop()?.rank}?)`
-        : '',
-    };
-    if (!busy) setMessage(msgs[S.phase] || '');
+    if (msgOverride && Date.now() < msgOverride.until) {
+      $('#message-bar').textContent = msgOverride.text;
+      return;
+    }
+    msgOverride = null;
+    const isCurrent = snap.current === myIdx;
+    const curName = snap.players[snap.current].name.toUpperCase();
+    const me = snap.players[myIdx];
+
+    let msg = '';
+    switch (snap.phase) {
+      case 'peek':
+        msg = me.ready
+          ? 'Esperando a que los demás confirmen…'
+          : `Toca 2 de tus cartas para verlas (${me.peeked}/2) y CONFIRMA`;
+        break;
+      case 'turn':
+        msg = isCurrent
+          ? 'Roba del mazo, toma el descarte, quema o grita ¡MATEO!'
+          : `${curName} está jugando… (puedes 🔥 QUEMAR el descarte)`;
+        break;
+      case 'drawn':
+        msg = isCurrent
+          ? (swapMode ? 'Elige cuál de tus cartas reemplazar' : '')
+          : `${curName} robó una carta y está decidiendo…`;
+        break;
+      case 'swapDiscard':
+        msg = isCurrent
+          ? 'Tomaste el descarte: elige cuál de tus cartas reemplazar'
+          : `${curName} tomó el descarte…`;
+        break;
+      case 'combine':
+        msg = isCurrent
+          ? 'COMBINAR: elige las 2 cartas que crees que hacen trío'
+          : `${curName} intenta combinar un trío…`;
+        break;
+      case 'power7':
+        msg = isCurrent ? 'PODER 7: toca una de TUS cartas para verla' : `${curName} usa el PODER 7…`;
+        break;
+      case 'power8':
+        msg = isCurrent ? 'PODER 8: toca una carta de OTRO jugador para verla' : `${curName} usa el PODER 8… ¡cuidado!`;
+        break;
+      case 'power9a':
+        msg = isCurrent ? 'PODER 9: elige una carta TUYA para intercambiar' : `${curName} usa el PODER 9…`;
+        break;
+      case 'power9b':
+        msg = isCurrent ? 'PODER 9: ahora elige la carta de OTRO jugador' : `${curName} usa el PODER 9…`;
+        break;
+      case 'burn':
+        msg = snap.ctx.burner === myIdx
+          ? `🔥 Elige tu carta a quemar (¿tienes un ${snap.discardTop?.rank}?)`
+          : `🔥 ${snap.players[snap.ctx.burner].name.toUpperCase()} intenta quemar…`;
+        break;
+    }
+    $('#message-bar').textContent = msg;
   }
 
-  function setMessage(text) {
+  function flash(text, ms = 2600) {
+    msgOverride = { text, until: Date.now() + ms };
     $('#message-bar').textContent = text;
   }
 
   /* ---------- interactions ---------- */
   function onCardClick(p, i) {
-    if (busy || modalOpen) return;
-    switch (S.phase) {
-      case 'peek': {
-        if (Game.peekCard(p, i)) { AudioFX.flip(); render(); }
+    switch (snap.phase) {
+      case 'peek':
+        send({ a: 'peek', i });
         break;
-      }
       case 'drawn':
-      case 'swapDiscard': {
-        if (p !== S.current) return;
-        const res = Game.swapWithDrawn(i);
-        AudioFX.swap();
-        slamDiscard();
-        afterAction(res);
+      case 'swapDiscard':
+        send({ a: 'swap', i });
         break;
-      }
       case 'combine':
-        handleCombinePick(p, i);
+        send({ a: 'combinePick', i });
         break;
       case 'power7':
       case 'power8':
       case 'power9a':
       case 'power9b':
-        handlePowerTarget(p, i);
+        send({ a: 'powerTarget', p, i });
         break;
       case 'burn':
-        handleBurnPick(p, i);
+        send({ a: 'burnPick', i });
         break;
-    }
-  }
-
-  function onReady(p) {
-    AudioFX.click();
-    const res = Game.setReady(p);
-    if (res === 'allReady') {
-      setMessage('¡QUE COMIENCE EL JUEGO!');
-      AudioFX.win();
-    }
-    render();
-  }
-
-  function onDraw() {
-    if (S.phase !== 'turn' || busy) return;
-    const res = Game.drawFromDeck();
-    if (!res) return;
-    if (!res.rank) { roundEndFlow(); return; } // deck exhausted → round over
-    AudioFX.draw();
-    openDrawnModal();
-  }
-
-  function onTakeDiscard() {
-    if (S.phase !== 'turn' || busy) return;
-    const card = Game.takeDiscard();
-    if (!card) return;
-    AudioFX.draw();
-    render();
-  }
-
-  function onMateo() {
-    if (S.phase !== 'turn' || busy) return;
-    AudioFX.mateo();
-    Game.declareMateo();
-    roundEndFlow();
-  }
-
-  function onStartBurn(p) {
-    if (Game.startBurn(p)) { AudioFX.click(); render(); }
-  }
-
-  function onCancel() {
-    AudioFX.click();
-    const wasDrawnSelect = ['combine', 'power7', 'power8', 'power9a', 'power9b'].includes(S.phase);
-    if (Game.cancelSelect()) {
-      if (wasDrawnSelect) openDrawnModal();
-      else render();
     }
   }
 
   /* ---------- drawn card modal ---------- */
   function openDrawnModal() {
-    modalOpen = true;
-    const modal = $('#drawn-modal');
+    const card = snap.drawn;
+    if (!card || card === true) return;
     const slot = $('#drawn-card-slot');
     slot.innerHTML = '';
-    slot.appendChild(cardEl(S.drawn, true));
+    slot.appendChild(cardEl(card));
 
-    const isWild = S.drawn.rank === 'Q' && S.drawn.suit === '♥';
+    const isWild = card.rank === 'Q' && card.suit === '♥';
     const hints = {
       '7': 'PODER: ver una de tus cartas',
       '8': 'PODER: ver una carta de otro jugador',
@@ -316,7 +335,7 @@ const UI = (() => {
     };
     $('#drawn-hint').textContent = isWild
       ? '★ Q DE CORAZONES: ¡COMODÍN, VALE 0! ★'
-      : hints[S.drawn.rank] || `Valor: ${cardValue(S.drawn)} puntos`;
+      : hints[card.rank] || `Valor: ${cardValue(card)} puntos`;
 
     const actions = $('#drawn-actions');
     actions.innerHTML = '';
@@ -328,239 +347,265 @@ const UI = (() => {
       actions.appendChild(b);
     };
 
-    addBtn('⇄ CAMBIAR', 'btn-success', () => { closeDrawnModal(); render(); });
-    if (Game.canUsePower()) {
-      addBtn(`★ USAR PODER ${S.drawn.rank}`, 'btn-warn', () => {
-        AudioFX.power();
-        Game.usePower();
-        closeDrawnModal();
-        render();
-      });
-    }
-    addBtn('♦♦♦ COMBINAR TRÍO', 'btn-small', () => {
-      Game.startCombine();
+    addBtn('⇄ CAMBIAR', 'btn-success', () => {
+      AudioFX.click();
+      swapMode = true;
       closeDrawnModal();
       render();
     });
-    addBtn('↓ DESCARTAR', 'btn-danger', () => {
-      const res = Game.discardDrawn();
-      AudioFX.discard();
+    if (['7', '8', '9'].includes(card.rank)) {
+      addBtn(`★ USAR PODER ${card.rank}`, 'btn-warn', () => {
+        closeDrawnModal();
+        send({ a: 'usePower' });
+      });
+    }
+    addBtn('♦♦♦ COMBINAR TRÍO', 'btn-small', () => {
+      AudioFX.click();
       closeDrawnModal();
-      slamDiscard();
-      afterAction(res);
+      send({ a: 'combineStart' });
+    });
+    addBtn('↓ DESCARTAR', 'btn-danger', () => {
+      closeDrawnModal();
+      send({ a: 'discardDrawn' });
     });
 
-    modal.classList.remove('hidden');
+    $('#drawn-modal').classList.remove('hidden');
     render();
   }
 
   function closeDrawnModal() {
-    modalOpen = false;
     $('#drawn-modal').classList.add('hidden');
   }
 
-  /* ---------- powers ---------- */
-  function handlePowerTarget(p, i) {
-    const res = Game.powerTarget(p, i);
-    if (!res) return;
-    if (res.type === 'pickedOwn') { AudioFX.click(); render(); return; }
-    if (res.type === 'blindSwap') {
-      AudioFX.swap();
-      setMessage('¡CARTAS INTERCAMBIADAS A CIEGAS!');
-      busyFor(1200, () => afterAction(res));
-      render();
-      return;
-    }
-    // peekOwn / peekOther: reveal for a moment
-    AudioFX.power();
-    AudioFX.flip();
-    revealed.add(key(res.player, res.card));
-    setMessage('MEMORÍZALA…');
-    busyFor(2500, () => {
-      revealed.delete(key(res.player, res.card));
-      AudioFX.flip();
-      afterAction(res);
+  /* ---------- host messages: lobby / state / events ---------- */
+  function onLobby(msg) {
+    myIdx = msg.you;
+    const list = $('#wait-list');
+    list.innerHTML = '';
+    msg.players.forEach((name, i) => {
+      const li = document.createElement('li');
+      li.textContent = `${i + 1}. ${name.toUpperCase()}${i === 0 ? ' 👑' : ''}${i === msg.you ? ' (TÚ)' : ''}`;
+      list.appendChild(li);
     });
-    render();
-  }
-
-  /* ---------- combine ---------- */
-  function handleCombinePick(p, i) {
-    const res = Game.combinePick(i);
-    if (!res) return;
-    if (res.type === 'picked') { AudioFX.click(); render(); return; }
-
-    if (res.type === 'combineOk') {
-      AudioFX.combine();
-      slamDiscard();
-      setMessage(`¡TRÍO DE ${res.cards[0].rank}! ${cardLabel(res.cards[0])} ${cardLabel(res.cards[1])} fuera de juego`);
-      busyFor(1800, () => afterAction(res));
-      render();
-      return;
+    for (let i = msg.players.length; i < 4; i++) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = `${i + 1}. esperando…`;
+      list.appendChild(li);
     }
-    // combineFail: show the two wrong cards, shake, penalty already applied
-    AudioFX.burnFail();
-    res.revealed.forEach((idx) => revealed.add(key(S.current, idx)));
-    setMessage(`¡FALLÓ EL TRÍO! Eran ${cardLabel(res.cards[0])} y ${cardLabel(res.cards[1])} → +1 carta de castigo`);
-    shakeHand(S.current);
-    busyFor(2200, () => {
-      res.revealed.forEach((idx) => revealed.delete(key(S.current, idx)));
-      afterAction(res);
-    });
-    render();
-  }
-
-  /* ---------- burn ---------- */
-  function handleBurnPick(p, i) {
-    const burner = p;
-    const res = Game.burnPick(i);
-    if (!res) return;
-
-    if (res.type === 'burnOk') {
-      AudioFX.burnOk();
-      slamDiscard();
-      setMessage(`🔥 ¡${S.players[burner].name.toUpperCase()} QUEMÓ ${cardLabel(res.card)}!`);
-      busyFor(1500, () => {
-        if (res.roundEnd) roundEndFlow();
-        else render();
-      });
-      render();
-      return;
-    }
-    // burnFail: card stays, show it briefly + penalty card
-    AudioFX.burnFail();
-    revealed.add(key(burner, i));
-    setMessage(`❌ ${S.players[burner].name.toUpperCase()} FALLÓ: era ${cardLabel(res.card)} → +1 carta de castigo`);
-    shakeHand(burner);
-    busyFor(2200, () => {
-      revealed.delete(key(burner, i));
-      render();
-    });
-    render();
-  }
-
-  /* ---------- flow helpers ---------- */
-  function afterAction(res) {
-    if (res && (res.roundEnd || res.endTurn)) {
-      roundEndFlow();
+    const begin = $('#btn-begin');
+    if (Net.isHost) {
+      begin.classList.remove('hidden');
+      begin.disabled = msg.players.length < 2;
+      $('#wait-hint').textContent = msg.players.length < 2
+        ? 'se necesitan al menos 2 jugadores'
+        : '¡puedes comenzar cuando estén todos!';
     } else {
-      render();
+      $('#wait-hint').textContent = 'esperando a que el anfitrión comience…';
     }
+    show('wait');
   }
 
-  function busyFor(ms, then) {
-    busy = true;
-    setTimeout(() => { busy = false; then(); }, ms);
+  function onState(s) {
+    snap = s;
+    myIdx = s.you;
+
+    const phaseChanged = s.phase !== lastPhase;
+    if (phaseChanged) {
+      lastPhase = s.phase;
+      if (s.phase !== 'drawn') swapMode = false;
+    }
+
+    // Round end: reveal everything on the table, then show scores
+    if ((s.phase === 'roundEnd' || s.phase === 'gameOver') && phaseChanged) {
+      closeDrawnModal();
+      show('game');
+      render();
+      setTimeout(showScores, 3400);
+      return;
+    }
+    if (s.phase === 'roundEnd' || s.phase === 'gameOver') return;
+
+    if (phaseChanged && s.phase === 'peek') {
+      show('game');
+      started = true;
+    }
+
+    // Drawn modal only for the active player who just drew from the deck
+    if (s.phase === 'drawn' && s.current === myIdx && s.drawn !== true && !swapMode) {
+      openDrawnModal();
+    } else if (s.phase !== 'drawn') {
+      closeDrawnModal();
+    }
+
+    render();
+  }
+
+  function onEvent(ev) {
+    const name = (i) => snap.players[i].name.toUpperCase();
+    switch (ev.name) {
+      case 'deal':
+        AudioFX.shuffle();
+        show('game');
+        render();
+        document.querySelectorAll('.hand .card').forEach((c, i) => {
+          c.classList.add('dealing');
+          c.style.animationDelay = `${i * 0.07}s`;
+          if (i % 4 === 0) AudioFX.deal(i / 4);
+        });
+        break;
+      case 'flip': AudioFX.flip(); break;
+      case 'start': AudioFX.win(); flash('¡QUE COMIENCE EL JUEGO!'); break;
+      case 'draw': AudioFX.draw(); break;
+      case 'tookDiscard': AudioFX.draw(); flash(`${name(ev.player)} tomó el descarte`); break;
+      case 'discard': AudioFX.discard(); slamDiscard(); break;
+      case 'swap': AudioFX.swap(); break;
+      case 'power': AudioFX.power(); flash(`★ ${name(ev.player)} usa el PODER ${ev.rank}`); break;
+      case 'peeked': flash(`👁 ${name(ev.player)} miró una carta de ${name(ev.target)}`); break;
+      case 'blindSwap':
+        AudioFX.swap();
+        flash(`⇄ ${name(ev.player)} intercambió una carta a ciegas con ${name(ev.target)}`);
+        break;
+      case 'burnOk':
+        AudioFX.burnOk();
+        slamDiscard();
+        flash(`🔥 ¡${name(ev.player)} QUEMÓ ${cardLabel(ev.card)}!`);
+        break;
+      case 'burnFail':
+        AudioFX.burnFail();
+        shakeSeat(ev.player);
+        flash(`❌ ${name(ev.player)} falló el quemado (era ${cardLabel(ev.card)}) → +1 carta`);
+        break;
+      case 'combineOk':
+        AudioFX.combine();
+        slamDiscard();
+        flash(`♦♦♦ ¡TRÍO DE ${ev.cards[0].rank}! ${name(ev.player)} descartó 3 cartas`);
+        break;
+      case 'combineFail':
+        AudioFX.burnFail();
+        shakeSeat(ev.player);
+        flash(`❌ ${name(ev.player)} falló el trío (${cardLabel(ev.cards[0])}, ${cardLabel(ev.cards[1])}) → +1 carta`);
+        break;
+      case 'roundEnd':
+        if (ev.reason === 'mateo') AudioFX.mateo();
+        else AudioFX.win();
+        flash('¡FIN DE RONDA! Revelando cartas…', 3400);
+        break;
+      case 'left':
+        flash(`⚠ ${name(ev.player)} SE DESCONECTÓ`, 6000);
+        break;
+    }
   }
 
   function slamDiscard() {
     requestAnimationFrame(() => {
       const top = $('#discard-pile .card');
-      if (top) { top.classList.add('slam'); AudioFX.discard(); }
+      if (top) top.classList.add('slam');
     });
   }
 
-  function shakeHand(p) {
+  function shakeSeat(p) {
     requestAnimationFrame(() => {
-      $(`#seat-${p}`).querySelectorAll('.card').forEach((c) => c.classList.add('shake'));
+      const seat = seatFor(p);
+      if (seat) seat.querySelectorAll('.card').forEach((c) => c.classList.add('shake'));
     });
   }
 
-  /* ---------- round end / scores ---------- */
-  function roundEndFlow() {
-    const result = S.roundResult;
-    if (!result) { render(); return; }
-    revealAll = true;
-    closeDrawnModal();
-
-    let msg = '¡FIN DE RONDA! Todas las cartas reveladas…';
-    if (result.reason === 'mateo') {
-      const caller = S.players[result.caller].name.toUpperCase();
-      msg = result.success
-        ? `📣 ¡${caller} CANTÓ MATEO Y GANÓ LA RONDA!`
-        : `📣 ¡${caller} CANTÓ MATEO Y FALLÓ! +15 de castigo`;
-      if (result.success) AudioFX.win(); else AudioFX.lose();
-    } else if (result.reason === 'empty') {
-      msg = '🏆 ¡UN JUGADOR SE QUEDÓ SIN CARTAS!';
-      AudioFX.win();
-    }
-    setMessage(msg);
-    busyFor(3200, showScores);
-    render();
-  }
-
+  /* ---------- score screen ---------- */
   function showScores() {
-    revealAll = false;
-    revealed = new Set();
-    const result = S.roundResult;
-    const over = S.phase === 'gameOver';
+    const result = snap.roundResult;
+    if (!result) return;
+    const over = snap.phase === 'gameOver';
 
-    $('#score-title').textContent = over ? '☠ GAME OVER ☠' : `FIN DE RONDA ${S.round}`;
+    $('#score-title').textContent = over ? '☠ GAME OVER ☠' : `FIN DE RONDA ${snap.round}`;
     let sub = '';
     if (result.reason === 'mateo') {
-      const caller = S.players[result.caller].name.toUpperCase();
-      sub = result.success ? `${caller} cantó MATEO con éxito` : `${caller} falló su MATEO (+15)`;
+      const caller = snap.players[result.caller].name.toUpperCase();
+      sub = result.success ? `📣 ${caller} cantó MATEO con éxito` : `📣 ${caller} falló su MATEO (+15)`;
+    } else if (result.reason === 'empty') {
+      sub = '🏆 ¡alguien se quedó sin cartas!';
     }
-    if (over) sub = `🏆 GANA ${S.gameOver.winner.toUpperCase()} · PIERDE ${S.gameOver.loser.toUpperCase()}`;
+    if (over) sub = `🏆 GANA ${snap.gameOver.winner.toUpperCase()} · PIERDE ${snap.gameOver.loser.toUpperCase()}`;
     $('#score-subtitle').textContent = sub;
 
     const tbody = $('#score-table tbody');
     tbody.innerHTML = '';
     result.rows.forEach((row) => {
       const tr = document.createElement('tr');
-      if (over && row.name === S.gameOver.winner) tr.className = 'winner';
-      if (over && row.name === S.gameOver.loser) tr.className = 'loser';
+      if (over && row.name === snap.gameOver.winner) tr.className = 'winner';
+      if (over && row.name === snap.gameOver.loser) tr.className = 'loser';
       tr.innerHTML = `<td>${row.name.toUpperCase()}</td><td>+${row.roundScore}</td><td>${row.total}</td>`;
       tbody.appendChild(tr);
     });
 
-    $('#btn-next-round').classList.toggle('hidden', over);
-    $('#btn-new-game').classList.toggle('hidden', !over);
+    $('#btn-next-round').classList.toggle('hidden', over || !Net.isHost);
+    $('#btn-new-game').classList.toggle('hidden', !over || !Net.isHost);
+    $('#score-hint').textContent = Net.isHost ? '' : over
+      ? 'el anfitrión puede iniciar otro juego'
+      : 'esperando a que el anfitrión inicie la siguiente ronda…';
     if (over) AudioFX.lose();
     show('score');
   }
 
-  /* ---------- deal animation ---------- */
-  function dealAnimation() {
-    AudioFX.shuffle();
-    render();
-    document.querySelectorAll('.hand .card').forEach((c, i) => {
-      c.classList.add('dealing');
-      c.style.animationDelay = `${i * 0.07}s`;
-      if (i % 4 === 0) AudioFX.deal(i / 4);
-    });
+  /* ---------- lobby wiring ---------- */
+  function lobbyError(text) {
+    $('#lobby-error').textContent = text;
   }
 
-  /* ---------- wiring ---------- */
-  $('#btn-start').addEventListener('click', () => {
+  $('#btn-create').addEventListener('click', () => {
     AudioFX.unlock();
     AudioFX.click();
-    const names = [0, 1, 2, 3].map((i) => $(`#name-${i}`).value.trim() || `Jugador ${i + 1}`);
-    Game.setup(names);
-    revealed = new Set();
-    revealAll = false;
-    busy = false;
-    lastTurn = -1;
-    show('game');
-    dealAnimation();
+    myName = $('#my-name').value.trim();
+    if (!myName) return lobbyError('escribe tu nombre primero');
+    lobbyError('');
+    $('#btn-create').disabled = true;
+    Net.createRoom((err, code) => {
+      $('#btn-create').disabled = false;
+      if (err) return lobbyError('error de conexión, intenta de nuevo');
+      roomCode = code;
+      $('#room-code').textContent = code;
+      Host.initLobby(myName);
+      Host.broadcastLobby();
+    });
+  });
+
+  $('#btn-join').addEventListener('click', () => {
+    AudioFX.unlock();
+    AudioFX.click();
+    myName = $('#my-name').value.trim();
+    const code = $('#join-code').value.trim().toUpperCase();
+    if (!myName) return lobbyError('escribe tu nombre primero');
+    if (code.length !== 4) return lobbyError('el código tiene 4 caracteres');
+    lobbyError('');
+    $('#btn-join').disabled = true;
+    Net.joinRoom(code, (err) => {
+      $('#btn-join').disabled = false;
+      if (err) return lobbyError('sala no encontrada, revisa el código');
+      roomCode = code;
+      $('#room-code').textContent = code;
+      Net.sendToHost({ t: 'join', name: myName });
+    });
+  });
+
+  $('#btn-begin').addEventListener('click', () => {
+    AudioFX.click();
+    Host.startGame();
   });
 
   $('#btn-next-round').addEventListener('click', () => {
     AudioFX.click();
-    Game.nextRound();
-    revealed = new Set();
-    revealAll = false;
-    lastTurn = -1;
-    show('game');
-    dealAnimation();
+    send({ a: 'nextRound' });
   });
 
   $('#btn-new-game').addEventListener('click', () => {
     AudioFX.click();
-    show('lobby');
+    send({ a: 'newGame' });
   });
 
-  $('#deck-pile').addEventListener('click', onDraw);
+  $('#deck-pile').addEventListener('click', () => {
+    if (snap && snap.phase === 'turn' && snap.current === myIdx) send({ a: 'draw' });
+  });
+
   $('#btn-rules').addEventListener('click', () => {
     AudioFX.click();
     $('#rules-modal').classList.remove('hidden');
@@ -570,8 +615,18 @@ const UI = (() => {
     $('#rules-modal').classList.add('hidden');
   });
 
-  // Dev helper: open with #autostart to skip the lobby
-  if (location.hash === '#autostart') $('#btn-start').click();
+  /* ---------- network messages (guest side) ---------- */
+  Net.on('lobby', onLobby);
+  Net.on('state', onState);
+  Net.on('event', onEvent);
+  Net.on('rejected', (msg) => {
+    show('lobby');
+    lobbyError(msg.reason === 'started' ? 'la partida ya comenzó' : 'la sala está llena');
+  });
+  Net.on('_hostLost', () => {
+    alert('Se perdió la conexión con el anfitrión');
+    location.reload();
+  });
 
-  return { render };
+  return { onLobby, onState, onEvent };
 })();
