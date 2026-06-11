@@ -6,10 +6,28 @@ import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { extname, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
 import puppeteer from 'puppeteer-core';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 8742;
+
+// Game server (rooms) on :4377 — the client targets it when on localhost
+const gameServer = spawn('node', [join(root, 'server', 'index.js')], {
+  env: { ...process.env, PORT: '4377' },
+  stdio: 'inherit',
+});
+await new Promise((resolve, reject) => {
+  let tries = 0;
+  const poll = setInterval(async () => {
+    try {
+      const r = await fetch('http://localhost:4377/');
+      if (r.ok) { clearInterval(poll); resolve(); }
+    } catch {
+      if (++tries > 20) { clearInterval(poll); reject(new Error('game server did not start')); }
+    }
+  }, 250);
+});
 const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript' };
 
 const server = createServer(async (req, res) => {
@@ -158,5 +176,6 @@ try {
   await hostBrowser.close();
   await guestBrowser.close();
   server.close();
+  gameServer.kill();
 }
 process.exit(failures === 0 ? 0 : 1);

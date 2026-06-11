@@ -40,10 +40,14 @@ const UI = (() => {
     return $(`.seat[data-pos="${SEAT_LAYOUT[n][rel]}"]`);
   }
 
-  /* ---------- dispatch: local for host, network for guests ---------- */
+  /* ---------- dispatch: every action goes to the server ---------- */
   function send(action) {
-    if (Net.isHost) Host.handleAction(myIdx, action);
-    else Net.sendToHost({ t: 'action', ...action });
+    Net.sendToHost({ t: 'action', ...action });
+  }
+
+  // Player 0 (the room creator) controls begin / next round
+  function amHost() {
+    return myIdx === 0;
   }
 
   /* ---------- card element ---------- */
@@ -410,15 +414,8 @@ const UI = (() => {
     $('#drawn-modal').classList.add('hidden');
   }
 
-  /* ---------- host messages: lobby / state / events ---------- */
+  /* ---------- server messages: lobby / state / events ---------- */
   function onLobby(msg) {
-    // An old cached host won't send v (or sends a different one): joining
-    // would break mid-game with missing snapshot fields, so stop here
-    if (!Net.isHost && msg.v !== PROTOCOL_VERSION) {
-      show('lobby');
-      lobbyError('el anfitrión usa otra versión del juego: TODOS deben recargar la página (Cmd/Ctrl+Shift+R)');
-      return;
-    }
     myIdx = msg.you;
     const list = $('#wait-list');
     list.innerHTML = '';
@@ -434,13 +431,14 @@ const UI = (() => {
       list.appendChild(li);
     }
     const begin = $('#btn-begin');
-    if (Net.isHost) {
+    if (amHost()) {
       begin.classList.remove('hidden');
       begin.disabled = msg.players.length < 2;
       $('#wait-hint').textContent = msg.players.length < 2
         ? 'se necesitan al menos 2 jugadores'
         : '¡puedes comenzar cuando estén todos!';
     } else {
+      begin.classList.add('hidden');
       $('#wait-hint').textContent = 'esperando a que el anfitrión comience…';
     }
     show('wait');
@@ -592,9 +590,9 @@ const UI = (() => {
       tbody.appendChild(tr);
     });
 
-    $('#btn-next-round').classList.toggle('hidden', over || !Net.isHost);
-    $('#btn-new-game').classList.toggle('hidden', !over || !Net.isHost);
-    $('#score-hint').textContent = Net.isHost ? '' : over
+    $('#btn-next-round').classList.toggle('hidden', over || !amHost());
+    $('#btn-new-game').classList.toggle('hidden', !over || !amHost());
+    $('#score-hint').textContent = amHost() ? '' : over
       ? 'el anfitrión puede iniciar otro juego'
       : 'esperando a que el anfitrión inicie la siguiente ronda…';
     if (over) AudioFX.lose();
@@ -613,13 +611,15 @@ const UI = (() => {
     if (!myName) return lobbyError('escribe tu nombre primero');
     lobbyError('');
     $('#btn-create').disabled = true;
-    Net.createRoom((err, code) => {
+    Net.createRoom(myName, (err, code) => {
       $('#btn-create').disabled = false;
-      if (err) return lobbyError('error de conexión, intenta de nuevo');
+      if (err) {
+        return lobbyError(err.type === 'version'
+          ? 'tu página está desactualizada: recárgala (Cmd/Ctrl+Shift+R)'
+          : 'sin conexión con el servidor de salas, intenta de nuevo en un momento');
+      }
       roomCode = code;
       $('#room-code').textContent = code;
-      Host.initLobby(myName);
-      Host.broadcastLobby();
     });
   });
 
@@ -632,22 +632,20 @@ const UI = (() => {
     if (code.length !== 4) return lobbyError('el código tiene 4 caracteres');
     lobbyError('');
     $('#btn-join').disabled = true;
-    Net.joinRoom(code, (err) => {
+    Net.joinRoom(code, myName, (err) => {
       $('#btn-join').disabled = false;
       if (err) {
         const errors = {
-          'peer-unavailable': 'sala no encontrada: revisa el código y que el anfitrión tenga la página abierta',
-          'timeout': 'no se pudo conectar con el anfitrión, intenta de nuevo',
-          'network': 'sin conexión con el servidor de salas: revisa tu internet e intenta de nuevo',
-          'server-error': 'el servidor de salas no responde, intenta en unos minutos',
-          'socket-error': 'sin conexión con el servidor de salas: revisa tu internet e intenta de nuevo',
-          'socket-closed': 'se cortó la conexión, intenta de nuevo',
+          'not-found': 'sala no encontrada: revisa el código',
+          'started': 'la partida ya comenzó (si estabas jugando, usa tu mismo nombre para volver)',
+          'full': 'la sala está llena',
+          'version': 'tu página está desactualizada: recárgala (Cmd/Ctrl+Shift+R)',
+          'timeout': 'sin conexión con el servidor de salas: revisa tu internet e intenta de nuevo',
         };
         return lobbyError(errors[err.type] || 'no se pudo entrar a la sala, intenta de nuevo');
       }
       roomCode = code;
       $('#room-code').textContent = code;
-      Net.sendToHost({ t: 'join', name: myName, v: PROTOCOL_VERSION });
     });
   }
 
@@ -693,7 +691,7 @@ const UI = (() => {
 
   $('#btn-begin').addEventListener('click', () => {
     AudioFX.click();
-    Host.startGame();
+    send({ a: 'begin' });
   });
 
   $('#btn-next-round').addEventListener('click', () => {
@@ -719,22 +717,30 @@ const UI = (() => {
     $('#rules-modal').classList.add('hidden');
   });
 
-  /* ---------- network messages (guest side) ---------- */
+  /* ---------- network messages ---------- */
   Net.on('lobby', onLobby);
   Net.on('state', onState);
   Net.on('event', onEvent);
   Net.on('rejected', (msg) => {
     show('lobby');
     const reasons = {
+      closed: 'el anfitrión cerró la sala',
       started: 'la partida ya comenzó',
       full: 'la sala está llena',
-      version: 'versión distinta a la del anfitrión: recarga la página en TODOS los dispositivos (Cmd/Ctrl+Shift+R)',
     };
     lobbyError(reasons[msg.reason] || 'no se pudo entrar a la sala');
   });
-  Net.on('_hostLost', () => {
-    alert('Se perdió la conexión con el anfitrión');
-    location.reload();
+  // Transient connection drops: Socket.IO reconnects and Net auto-rejoins
+  Net.on('_dropped', (info) => {
+    if (info.fatal) {
+      alert('Se perdió la sesión con el servidor');
+      location.reload();
+      return;
+    }
+    if (snap) flash('⚠ CONEXIÓN PERDIDA… reconectando', 8000);
+  });
+  Net.on('_connected', () => {
+    if (snap) flash('✔ RECONECTADO', 2500);
   });
 
   return { onLobby, onState, onEvent };

@@ -1,0 +1,11 @@
+# Deploy del backend en Render (free tier): https://render.com
+# New + > Blueprint > conectar este repo > Apply
+services:
+  - type: web
+    name: mateo-game
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node index.js
+    healthCheckPath: /

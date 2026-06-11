@@ -1,13 +1,29 @@
-/* ============ Mateo game state machine ============
- * Phases:
- *  lobby | peek | turn | drawn | swapDiscard | combine
- *  power7 | power8 | power9a | power9b | burn | roundEnd | gameOver
- *
- * Scoring: a round is won only by a correct Mateo call (or by running out
- * of cards). The winner earns 1 star; first player to reach 3 stars wins
- * the game. A failed Mateo call loses 1 star and the round continues.
+/* ============ Mateo game engine (server-side) ============
+ * One instance per room: const game = createGame()
+ * Ported from the original browser engine; the API is unchanged.
  */
-const Game = (() => {
+const SUITS = ['♠', '♥', '♦', '♣'];
+const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+function buildDeck() {
+  const deck = [];
+  for (const suit of SUITS) {
+    for (const rank of RANKS) {
+      deck.push({ rank, suit });
+    }
+  }
+  return deck;
+}
+
+function shuffle(deck) {
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+function createGame() {
   const PEEK_LIMIT = 2;
   const WIN_STARS = 3;
 
@@ -376,4 +392,6 @@ const Game = (() => {
     declareMateo, nextRound,
     currentPlayer, discardTop,
   };
-})();
+}
+
+module.exports = { createGame, buildDeck, shuffle, SUITS, RANKS };

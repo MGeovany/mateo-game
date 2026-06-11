@@ -1,0 +1,15 @@
+{
+  "name": "mateo-server",
+  "version": "1.0.0",
+  "description": "Servidor autoritativo del juego Mateo (salas en memoria, Socket.IO)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "socket.io": "^4.8.0"
+  }
+}

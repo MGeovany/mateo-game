@@ -1,14 +1,7 @@
 /* Engine smoke test: node test/engine.test.js */
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
+const { createGame } = require('../server/game');
 
-const ctx = vm.createContext({ console, setTimeout });
-for (const f of ['cards.js', 'game.js']) {
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, { filename: f });
-}
-
-vm.runInContext(`
+const Game = createGame();
 const S = Game.state;
 Game.setup(['Jennifer','Geovany','Maria','Ileana']);
 console.assert(S.phase==='peek' && S.players.every(p=>p.hand.length===4) && S.deck.length===36, 'deal');
@@ -121,4 +114,3 @@ res = Game.declareMateo();
 console.assert(res.type==='mateoWin' && S.phase==='gameOver' && S.gameOver.winner==='Ileana','3 stars wins the game');
 
 console.log('ALL ENGINE TESTS PASSED');
-`, ctx, { filename: 'test-body' });

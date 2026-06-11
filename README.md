@@ -7,10 +7,10 @@ Juego web del clásico argentino **Mateo**: memoria, estrategia y agilidad menta
 ## 🌐 Multijugador
 
 - Un jugador pulsa **CREAR PARTIDA** y obtiene un **código de sala de 4 caracteres**.
-- Los demás entran con **UNIRSE** usando ese código.
-- Cada jugador **solo ve sus propias cartas** — el anfitrión actúa como autoridad del juego y envía a cada dispositivo un estado censurado. El cliente nunca decide resultados.
-- **Reconexión**: si te desconectas, vuelve a entrar con el **mismo nombre** y el código de sala; tu asiento y tus cartas te esperan.
-- Conexión P2P vía WebRTC ([PeerJS](https://peerjs.com/)) — sin backend propio, funciona desde GitHub Pages. Sin persistencia: si el anfitrión cierra, la sala se pierde.
+- Los demás entran con **UNIRSE** usando ese código — **desde cualquier red**, no hace falta estar en el mismo WiFi.
+- Cada jugador **solo ve sus propias cartas** — el servidor es la única autoridad: valida cada acción y envía a cada dispositivo un estado censurado. El cliente nunca decide resultados.
+- **Reconexión**: las caídas breves se reconectan solas; si cierras la página, vuelve a entrar con el **mismo nombre** y código — tu asiento y tus cartas te esperan. La partida ya no depende del celular del anfitrión.
+- Las salas viven en la memoria RAM del servidor (sin persistencia): un reinicio del servidor las borra.
 
 ## 🎯 Objetivo
 
@@ -58,30 +58,39 @@ Quedarte **sin cartas** (quemas/tríos) también gana la ronda. Si el mazo se ag
 
 ## 🛠 Stack
 
-- HTML + CSS + JavaScript vanilla, sin build ni frameworks.
-- Multijugador WebRTC con PeerJS (host autoritativo, estado censurado por jugador, reconexión por nombre).
+- Frontend: HTML + CSS + JavaScript vanilla, sin build ni frameworks — hospedado gratis en **GitHub Pages**.
+- Backend: **Node + Socket.IO** (salas en memoria, servidor autoritativo, estado censurado por jugador, reconexión por nombre) — hospedado gratis en **Render**.
 - Sonidos sintetizados en tiempo real con **Web Audio API** (sin archivos de audio).
 - Animaciones CSS (reparto, flip 3D, quemado, shake, glow neón) y estética CRT con scanlines.
+
+## ☁️ Deploy
+
+- **Frontend**: GitHub Pages sirve este repo tal cual (rama `main`).
+- **Backend**: [Render](https://render.com) free tier vía `render.yaml` — en Render: *New + → Blueprint → conectar este repo → Apply*. La URL resultante (ej. `https://mateo-game.onrender.com`) debe coincidir con `SERVER_URL` en `js/net.js`.
+- Nota del tier gratis de Render: el servidor **se duerme tras ~15 min sin uso**; la primera sala después de eso tarda ~30-60 s en crear mientras despierta. Las partidas en curso no se ven afectadas.
 
 ## 🚀 Desarrollo
 
 ```bash
-pnpm i
-pnpm dev          # sirve en http://localhost:5173
-pnpm test:engine  # smoke test del motor de juego (Node)
-pnpm test:e2e     # e2e multijugador con 2 navegadores headless (requiere Chrome)
+pnpm i             # instala también las deps del servidor
+pnpm dev:server    # servidor de salas en http://localhost:4377
+pnpm dev           # frontend en http://localhost:5173 (apunta solo al server local)
+pnpm test:engine   # smoke test del motor de juego (Node)
+pnpm test:e2e      # e2e multijugador con 2 navegadores headless (requiere Chrome)
 ```
 
 ## Estructura
 
 ```
-index.html      # pantallas: lobby, sala de espera, mesa, puntajes
-css/style.css   # tema retro neón + animaciones
-js/cards.js     # mazo y palos
-js/game.js      # máquina de estados del juego (corre en el host)
-js/host.js      # autoridad: valida acciones, censura estado, reconexión
-js/net.js       # capa P2P (PeerJS)
-js/ui.js        # render por dispositivo, interacciones, sonidos
-js/audio.js     # efectos de sonido Web Audio
-test/           # tests de motor y e2e
+index.html        # pantallas: lobby, sala de espera, mesa, puntajes
+css/style.css     # tema retro neón + animaciones
+js/net.js         # cliente Socket.IO (crear/unirse, auto-rejoin)
+js/ui.js          # render por dispositivo, interacciones, sonidos
+js/cards.js       # helpers de render de cartas
+js/audio.js       # efectos de sonido Web Audio
+server/index.js   # servidor de salas (Socket.IO)
+server/room.js    # autoridad: valida acciones, censura estado, reconexión
+server/game.js    # máquina de estados del juego (una instancia por sala)
+render.yaml       # blueprint de deploy en Render
+test/             # tests de motor y e2e
 ```
