@@ -6,12 +6,12 @@
 // Must match the server's PROTOCOL_VERSION (server/index.js)
 const PROTOCOL_VERSION = 4;
 
-// Backend URL: local server during development, Render in production.
-// If your Render service gets a different name, update this URL.
+// Backend URL: local server during development; in production, CloudFront
+// (HTTPS/WSS) in front of the EC2 'mateo-server' instance (AWS 851725556357).
 const SERVER_URL =
   location.hostname === 'localhost' || location.hostname === '127.0.0.1'
     ? `http://${location.hostname}:4377`
-    : 'https://mateo-game.onrender.com';
+    : 'https://d2340jzxveu9gx.cloudfront.net';
 
 const Net = (() => {
   let socket = null;

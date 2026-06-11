@@ -59,15 +59,15 @@ Quedarte **sin cartas** (quemas/tríos) también gana la ronda. Si el mazo se ag
 ## 🛠 Stack
 
 - Frontend: HTML + CSS + JavaScript vanilla, sin build ni frameworks — hospedado gratis en **GitHub Pages**.
-- Backend: **Node + Socket.IO** (salas en memoria, servidor autoritativo, estado censurado por jugador, reconexión por nombre) — hospedado gratis en **Render**.
+- Backend: **Node + Socket.IO** (salas en memoria, servidor autoritativo, estado censurado por jugador, reconexión por nombre) — en **AWS EC2 + CloudFront**.
 - Sonidos sintetizados en tiempo real con **Web Audio API** (sin archivos de audio).
 - Animaciones CSS (reparto, flip 3D, quemado, shake, glow neón) y estética CRT con scanlines.
 
 ## ☁️ Deploy
 
 - **Frontend**: GitHub Pages sirve este repo tal cual (rama `main`).
-- **Backend**: [Render](https://render.com) free tier vía `render.yaml` — en Render: *New + → Blueprint → conectar este repo → Apply*. La URL resultante (ej. `https://mateo-game.onrender.com`) debe coincidir con `SERVER_URL` en `js/net.js`.
-- Nota del tier gratis de Render: el servidor **se duerme tras ~15 min sin uso**; la primera sala después de eso tarda ~30-60 s en crear mientras despierta. Las partidas en curso no se ven afectadas.
+- **Backend**: AWS (cuenta propia) — EC2 `t4g.nano` (`mateo-server`, us-east-2) corre `server/` como servicio systemd en el puerto 4377, con una Elastic IP y **CloudFront** delante para HTTPS/WSS (`SERVER_URL` en `js/net.js`). Siempre encendido, sin cold starts.
+- Para actualizar el servidor tras un cambio en `server/`: `ssh` o SSM a la instancia y `cd /opt/mateo && git pull && sudo systemctl restart mateo`.
 
 ## 🚀 Desarrollo
 
@@ -91,6 +91,5 @@ js/audio.js       # efectos de sonido Web Audio
 server/index.js   # servidor de salas (Socket.IO)
 server/room.js    # autoridad: valida acciones, censura estado, reconexión
 server/game.js    # máquina de estados del juego (una instancia por sala)
-render.yaml       # blueprint de deploy en Render
 test/             # tests de motor y e2e
 ```
