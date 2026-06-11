@@ -2,6 +2,11 @@
  * The host creates a Peer with id "mateo-<CODE>"; guests connect to it.
  * Messages are plain JSON: guests send actions, host sends state + events.
  */
+// Bumped on every release that changes the host<->guest message shape.
+// Host and guests must match: a cached old version on one device would
+// otherwise break the game silently (e.g. missing snapshot fields).
+const PROTOCOL_VERSION = 2;
+
 const Net = (() => {
   let peer = null;
   let isHost = false;

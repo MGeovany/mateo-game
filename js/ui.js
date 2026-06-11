@@ -398,6 +398,13 @@ const UI = (() => {
 
   /* ---------- host messages: lobby / state / events ---------- */
   function onLobby(msg) {
+    // An old cached host won't send v (or sends a different one): joining
+    // would break mid-game with missing snapshot fields, so stop here
+    if (!Net.isHost && msg.v !== PROTOCOL_VERSION) {
+      show('lobby');
+      lobbyError('el anfitrión usa otra versión del juego: TODOS deben recargar la página (Cmd/Ctrl+Shift+R)');
+      return;
+    }
     myIdx = msg.you;
     const list = $('#wait-list');
     list.innerHTML = '';
@@ -616,7 +623,7 @@ const UI = (() => {
       if (err) return lobbyError('sala no encontrada, revisa el código');
       roomCode = code;
       $('#room-code').textContent = code;
-      Net.sendToHost({ t: 'join', name: myName });
+      Net.sendToHost({ t: 'join', name: myName, v: PROTOCOL_VERSION });
     });
   }
 
@@ -694,7 +701,12 @@ const UI = (() => {
   Net.on('event', onEvent);
   Net.on('rejected', (msg) => {
     show('lobby');
-    lobbyError(msg.reason === 'started' ? 'la partida ya comenzó' : 'la sala está llena');
+    const reasons = {
+      started: 'la partida ya comenzó',
+      full: 'la sala está llena',
+      version: 'versión distinta a la del anfitrión: recarga la página en TODOS los dispositivos (Cmd/Ctrl+Shift+R)',
+    };
+    lobbyError(reasons[msg.reason] || 'no se pudo entrar a la sala');
   });
   Net.on('_hostLost', () => {
     alert('Se perdió la conexión con el anfitrión');

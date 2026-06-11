@@ -15,7 +15,11 @@ const Host = (() => {
     started = false;
   }
 
-  function addGuest(name, conn) {
+  function addGuest(name, conn, version) {
+    if (version !== PROTOCOL_VERSION) {
+      Net.sendTo(conn, { t: 'rejected', reason: 'version' });
+      return;
+    }
     const clean = (name || '').trim().slice(0, 10);
     if (started) {
       // Reconnection: a disconnected player may rejoin with the same name
@@ -25,7 +29,7 @@ const Host = (() => {
       if (idx !== -1) {
         lobby[idx].conn = conn;
         lobby[idx].disconnected = false;
-        Net.sendTo(conn, { t: 'lobby', players: lobby.map((x) => x.name), you: idx });
+        Net.sendTo(conn, { t: 'lobby', v: PROTOCOL_VERSION, players: lobby.map((x) => x.name), you: idx });
         Net.sendTo(conn, snapshotFor(idx));
         emit({ name: 'rejoined', player: idx });
         return;
@@ -43,7 +47,7 @@ const Host = (() => {
 
   function broadcastLobby() {
     lobby.forEach((p, i) => {
-      const msg = { t: 'lobby', players: lobby.map((x) => x.name), you: i };
+      const msg = { t: 'lobby', v: PROTOCOL_VERSION, players: lobby.map((x) => x.name), you: i };
       if (p.conn) Net.sendTo(p.conn, msg);
       else UI.onLobby(msg);
     });
@@ -329,7 +333,7 @@ const Host = (() => {
   }
 
   /* ---------- network wiring ---------- */
-  Net.on('join', (msg, conn) => addGuest(msg.name, conn));
+  Net.on('join', (msg, conn) => addGuest(msg.name, conn, msg.v));
   Net.on('action', (msg, conn) => {
     const from = lobby.findIndex((p) => p.conn === conn);
     if (from >= 0) handleAction(from, msg);
