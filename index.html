@@ -24,10 +24,22 @@
 
       <div class="lobby-actions">
         <button id="btn-create" class="btn btn-big">+ CREAR PARTIDA</button>
-        <div class="join-row">
-          <input type="text" id="join-code" maxlength="4" placeholder="CÓDIGO" />
-          <button id="btn-join" class="btn btn-success">UNIRSE ▶</button>
-        </div>
+
+        <p class="join-divider">o únete con un código</p>
+
+        <label class="code-field">CÓDIGO DE SALA
+          <input
+            type="text"
+            id="join-code"
+            maxlength="4"
+            placeholder="ej: A3K9"
+            inputmode="text"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+          />
+        </label>
+        <button id="btn-join" class="btn btn-success btn-join">UNIRSE ▶</button>
       </div>
 
       <p id="lobby-error" class="lobby-error"></p>
@@ -39,8 +51,8 @@
   <section id="screen-wait" class="screen">
     <div class="lobby-box">
       <p class="subtitle">CÓDIGO DE LA SALA</p>
-      <div id="room-code" class="room-code">····</div>
-      <p class="wait-share">comparte este código con los demás jugadores</p>
+      <button type="button" id="room-code" class="room-code" title="Copiar código">····</button>
+      <p id="wait-share" class="wait-share">toca el código para copiarlo · compártelo con los demás</p>
       <ul id="wait-list" class="wait-list"></ul>
       <button id="btn-begin" class="btn btn-big hidden" disabled>▶ COMENZAR</button>
       <p id="wait-hint" class="wait-hint"></p>
@@ -83,8 +95,10 @@
       </div>
     </div>
 
-    <div id="message-bar" class="message-bar"></div>
-    <div id="action-bar" class="action-bar"></div>
+    <div class="game-footer">
+      <div id="message-bar" class="message-bar"></div>
+      <div id="action-bar" class="action-bar"></div>
+    </div>
 
     <!-- Drawn card modal (only shown on the active player's device) -->
     <div id="drawn-modal" class="modal hidden">

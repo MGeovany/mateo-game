@@ -68,28 +68,58 @@ html, body {
   display: flex; flex-direction: column; gap: 8px;
   margin: 0 auto 26px; max-width: 280px;
 }
-.name-field input, .join-row input {
+.name-field input, .code-field input {
   font-family: inherit; font-size: 12px;
   background: #000; color: var(--neon-green);
   border: 3px solid var(--neon-cyan);
   padding: 10px; outline: none; text-align: center;
   box-shadow: 0 0 6px rgba(5,217,232,0.5);
+  width: 100%;
 }
-.name-field input:focus, .join-row input:focus { border-color: var(--neon-pink); }
+.name-field input:focus, .code-field input:focus { border-color: var(--neon-pink); }
 
-.lobby-actions { display: flex; flex-direction: column; gap: 18px; align-items: center; margin-bottom: 18px; }
-.join-row { display: flex; gap: 8px; align-items: stretch; }
-.join-row input { width: 110px; text-transform: uppercase; letter-spacing: 4px; }
+.code-field {
+  font-size: 8px; color: var(--neon-yellow);
+  display: flex; flex-direction: column; gap: 8px;
+  margin: 0 auto; max-width: 280px; width: 100%;
+}
+.code-field input {
+  font-size: 20px;
+  padding: 14px 10px;
+  text-transform: uppercase;
+  letter-spacing: 10px;
+}
+
+.lobby-actions { display: flex; flex-direction: column; gap: 14px; align-items: center; margin-bottom: 18px; width: 100%; max-width: 280px; margin-inline: auto; }
+.join-divider { font-size: 7px; color: rgba(5,217,232,0.55); letter-spacing: 1px; margin: 4px 0; }
+.btn-join { width: 100%; font-size: 12px; padding: 14px 20px; margin: 0; }
 .lobby-error { font-size: 8px; color: #ff3b3b; min-height: 14px; margin-bottom: 10px; }
 
 /* waiting room */
 .room-code {
+  font-family: inherit;
   font-size: 44px;
   color: var(--neon-yellow);
   letter-spacing: 14px;
   text-shadow: 0 0 12px var(--neon-yellow), 4px 4px 0 #000;
   margin: 10px 0 6px;
   animation: pulse-title 2s ease-in-out infinite;
+  cursor: pointer;
+  background: none;
+  border: 3px dashed transparent;
+  padding: 8px 16px;
+  transition: transform 0.1s, border-color 0.15s, color 0.15s;
+}
+.room-code:hover {
+  border-color: rgba(249,240,2,0.35);
+  transform: scale(1.03);
+}
+.room-code:active { transform: scale(0.97); }
+.room-code.copied {
+  color: var(--neon-green);
+  border-color: var(--neon-green);
+  text-shadow: 0 0 12px var(--neon-green), 4px 4px 0 #000;
+  animation: none;
 }
 .wait-share { font-size: 8px; color: var(--neon-cyan); margin-bottom: 24px; }
 .wait-list { list-style: none; margin: 0 auto 24px; max-width: 320px; text-align: left; }
@@ -123,12 +153,22 @@ html, body {
 .btn:disabled { filter: grayscale(1) brightness(0.6); cursor: not-allowed; }
 
 /* ============ TABLE ============ */
-#table { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; }
+#screen-game.active { justify-content: flex-start; }
 
-.table-circle {
+#table {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+#screen-game .table-circle {
   position: relative;
-  width: min(88vmin, 640px);
-  height: min(88vmin, 640px);
+  width: min(72vmin, 580px);
+  height: min(72vmin, 580px);
   border-radius: 50%;
   background: radial-gradient(circle at 50% 38%, #2a1660 0%, var(--felt) 65%);
   border: 6px solid var(--felt-edge);
@@ -322,24 +362,42 @@ html, body {
   text-shadow: 0 0 6px var(--neon-yellow);
 }
 
+.game-footer {
+  flex-shrink: 0;
+  width: 100%;
+  padding: 10px 16px 14px;
+  background: linear-gradient(to top, var(--bg) 75%, transparent);
+  border-top: 2px solid rgba(255,42,109,0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  z-index: 40;
+}
+
 .message-bar {
   pointer-events: none;
-  position: fixed; bottom: 78px; left: 50%; transform: translateX(-50%);
-  font-size: 9px; color: var(--neon-cyan);
+  font-size: 8px;
+  color: var(--neon-cyan);
   text-align: center;
-  max-width: 90vw;
-  line-height: 1.7;
+  max-width: min(520px, 92vw);
+  line-height: 1.8;
   text-shadow: 0 0 4px var(--neon-cyan);
-  z-index: 40;
+  background: rgba(0,0,0,0.72);
+  border: 2px solid rgba(5,217,232,0.35);
+  padding: 8px 14px;
+  min-height: 2.8em;
 }
 
 .action-bar {
   pointer-events: none;
-  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
-  z-index: 40;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  min-height: 44px;
 }
-.action-bar .btn { pointer-events: auto; }
+.action-bar .btn { pointer-events: auto; margin: 0; }
 
 /* ============ MODALS ============ */
 .modal {

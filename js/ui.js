@@ -602,7 +602,7 @@ const UI = (() => {
     });
   });
 
-  $('#btn-join').addEventListener('click', () => {
+  function tryJoin() {
     AudioFX.unlock();
     AudioFX.click();
     myName = $('#my-name').value.trim();
@@ -618,6 +618,46 @@ const UI = (() => {
       $('#room-code').textContent = code;
       Net.sendToHost({ t: 'join', name: myName });
     });
+  }
+
+  async function copyRoomCode() {
+    const code = (roomCode || $('#room-code').textContent).trim();
+    if (!code || code === '····' || code.length !== 4) return;
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = code;
+      ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    AudioFX.click();
+    const codeEl = $('#room-code');
+    const shareEl = $('#wait-share');
+    const prev = shareEl.textContent;
+    codeEl.classList.add('copied');
+    shareEl.textContent = '¡código copiado!';
+    setTimeout(() => {
+      codeEl.classList.remove('copied');
+      shareEl.textContent = prev;
+    }, 2000);
+  }
+
+  $('#room-code').addEventListener('click', copyRoomCode);
+
+  $('#btn-join').addEventListener('click', tryJoin);
+
+  $('#join-code').addEventListener('input', (e) => {
+    const el = e.target;
+    const next = el.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (el.value !== next) el.value = next;
+  });
+
+  $('#join-code').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') tryJoin();
   });
 
   $('#btn-begin').addEventListener('click', () => {
