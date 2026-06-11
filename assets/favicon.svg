@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Mateo">
+  <rect width="32" height="32" fill="#0d0221"/>
+  <rect x="7" y="4" width="18" height="24" rx="1.5" fill="#1a0b3b" stroke="#ff2a6d" stroke-width="2"/>
+  <path fill="#05d9e8" d="M12 9h8v2h-3v9h2v2h-6v-2h2v-9h-3V9z"/>
+  <rect x="10" y="7" width="2" height="2" fill="#ff2a6d"/>
+  <rect x="20" y="23" width="2" height="2" fill="#ff2a6d"/>
+  <rect x="15" y="2" width="2" height="2" fill="#39ff14"/>
+  <rect x="15" y="28" width="2" height="2" fill="#39ff14"/>
+</svg>

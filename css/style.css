@@ -61,7 +61,16 @@ html, body {
   50% { text-shadow: 0 0 16px var(--neon-pink), 0 0 48px var(--neon-pink), 4px 4px 0 #000; }
 }
 
-.subtitle { font-size: 10px; color: var(--neon-cyan); margin-bottom: 32px; letter-spacing: 2px; }
+.subtitle { font-size: 10px; color: var(--neon-cyan); margin-bottom: 16px; letter-spacing: 2px; }
+
+.seo-intro {
+  font-size: 7px;
+  color: rgba(5,217,232,0.65);
+  line-height: 1.9;
+  max-width: 320px;
+  margin: 0 auto 24px;
+  letter-spacing: 0.5px;
+}
 
 .name-field {
   font-size: 8px; color: var(--neon-yellow);

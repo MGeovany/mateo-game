@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://mgeovany.github.io/mateo-game/sitemap.xml

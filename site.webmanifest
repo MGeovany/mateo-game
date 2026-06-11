@@ -1,0 +1,29 @@
+{
+  "name": "Mateo — Juego de Cartas Multijugador",
+  "short_name": "Mateo",
+  "description": "Juego de cartas argentino multijugador online. Memoria, estrategia y agilidad mental con estilo retro arcade.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0d0221",
+  "theme_color": "#ff2a6d",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "assets/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    }
+  ]
+}

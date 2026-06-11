@@ -3,20 +3,70 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MATEO — Juego de Cartas Retro Multijugador</title>
+  <title>Mateo — Juego de Cartas Multijugador Online Gratis</title>
+  <meta name="description" content="Juega Mateo online con amigos: el clásico juego de cartas argentino multijugador (2–4 jugadores). Memoria, estrategia y agilidad mental con estilo retro arcade. Sin descargas." />
+  <meta name="keywords" content="mateo, juego de cartas, cartas argentinas, multijugador, juego online, memoria, estrategia, retro, arcade, gratis" />
+  <meta name="author" content="MGeovany" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#ff2a6d" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="application-name" content="Mateo" />
+  <meta name="apple-mobile-web-app-title" content="Mateo" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="canonical" href="https://mgeovany.github.io/mateo-game/" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="es_AR" />
+  <meta property="og:site_name" content="Mateo" />
+  <meta property="og:title" content="Mateo — Juego de Cartas Multijugador Online" />
+  <meta property="og:description" content="Crea una partida, comparte el código y juega Mateo con 2 a 4 jugadores. El clásico argentino de memoria y estrategia, gratis en el navegador." />
+  <meta property="og:url" content="https://mgeovany.github.io/mateo-game/" />
+  <meta property="og:image" content="https://mgeovany.github.io/mateo-game/assets/og-image.jpg" />
+  <meta property="og:image:alt" content="Mateo — juego de cartas multijugador retro" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Mateo — Juego de Cartas Multijugador Online" />
+  <meta name="twitter:description" content="Juega Mateo con amigos: memoria, estrategia y agilidad. Crea una sala con código de 4 letras y juega gratis." />
+  <meta name="twitter:image" content="https://mgeovany.github.io/mateo-game/assets/og-image.jpg" />
+  <meta name="twitter:image:alt" content="Mateo — juego de cartas multijugador retro" />
+
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <link rel="manifest" href="site.webmanifest" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css?v=2" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "Mateo",
+    "description": "Juego de cartas argentino multijugador online. Memoria, estrategia y agilidad mental con estilo retro arcade.",
+    "url": "https://mgeovany.github.io/mateo-game/",
+    "image": "https://mgeovany.github.io/mateo-game/assets/og-image.jpg",
+    "inLanguage": "es",
+    "genre": ["Card Game", "Multiplayer", "Strategy"],
+    "gamePlatform": "Web browser",
+    "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 2, "maxValue": 4 },
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "applicationCategory": "Game"
+  }
+  </script>
 </head>
 <body>
   <div id="crt-overlay"></div>
 
   <!-- LOBBY -->
-  <section id="screen-lobby" class="screen active">
+  <section id="screen-lobby" class="screen active" aria-label="Inicio">
     <div class="lobby-box">
       <h1 class="game-title">🃏 MATEO</h1>
       <p class="subtitle">MEMORIA · ESTRATEGIA · AGILIDAD</p>
+      <p class="seo-intro">Juego de cartas argentino multijugador online · 2 a 4 jugadores · gratis en el navegador</p>
 
       <label class="name-field">TU NOMBRE
         <input type="text" id="my-name" maxlength="10" placeholder="ej: Geovany" />
