@@ -18,9 +18,13 @@ const Game = (() => {
     deck: [],
     discard: [],          // top = last element
     eliminated: [],       // burned cards: out of the game, never reshuffled
-    fresh: null,          // the freshly discarded card — the ONLY card that can
-                          // be taken (by the next player) or burned (by anyone);
-                          // a successful burn eliminates it
+    fresh: null,          // the freshly discarded card — the only card the
+                          // next player may TAKE; a successful burn removes it
+    burnTarget: null,     // the card burns must match. Starts as the fresh
+                          // discard; after a burn, the burner's card becomes
+                          // the new target, so chains are possible (e.g. burn
+                          // both of your Ks onto a discarded K). Any new
+                          // discard resets it
     current: 0,
     startingPlayer: 0,
     drawn: null,          // card held after drawing
@@ -44,6 +48,7 @@ const Game = (() => {
     state.discard = [];
     state.eliminated = [];
     state.fresh = null;
+    state.burnTarget = null;
     state.drawn = null;
     state.ctx = {};
     state.roundResult = null;
@@ -103,6 +108,7 @@ const Game = (() => {
   function discardFresh(card) {
     state.discard.push(card);
     state.fresh = card;
+    state.burnTarget = card;
   }
 
   /* ---------- turn actions ---------- */
@@ -121,6 +127,7 @@ const Game = (() => {
     if (state.phase !== 'turn' || !state.fresh) return null;
     state.drawn = state.discard.pop();
     state.fresh = null;
+    state.burnTarget = null; // the card left the table: nothing to burn against
     state.ctx.drawnFrom = 'discard';
     state.phase = 'swapDiscard';
     return state.drawn;
@@ -248,12 +255,15 @@ const Game = (() => {
   }
 
   /* ---------- burn ----------
-   * Anyone may burn the fresh discard with a same-rank card. The phase lock
-   * means only the first claimer gets the attempt. A successful burn
-   * eliminates both cards and kills the next player's right to take it.
+   * Anyone may burn the current burn target with a same-rank card. The phase
+   * lock means only the first claimer gets the attempt. A successful burn
+   * eliminates the target, kills the next player's right to take the
+   * discard, and the burner's card becomes the NEW burn target — so a player
+   * holding two Ks can burn both onto a discarded K (chain burning). Any
+   * new discard resets the target.
    */
   function startBurn(playerIdx) {
-    if (state.phase !== 'turn' || !state.fresh) return false;
+    if (state.phase !== 'turn' || !state.burnTarget) return false;
     if (state.players[playerIdx].hand.length === 0) return false;
     state.phase = 'burn';
     state.ctx.burner = playerIdx;
@@ -265,15 +275,19 @@ const Game = (() => {
     const burner = state.ctx.burner;
     const p = state.players[burner];
     const card = p.hand[cardIdx];
-    const target = state.fresh;
+    const target = state.burnTarget;
     delete state.ctx.burner;
     state.phase = 'turn';
 
     if (card.rank === target.rank) {
       p.hand.splice(cardIdx, 1);
-      state.discard.pop(); // the fresh card is always on top
-      state.eliminated.push(target, card);
+      // First burn of a chain: the fresh card still sits on the pile
+      if (discardTop() === target) state.discard.pop();
+      // Keep order: the last eliminated card is always the current target
+      if (!state.eliminated.includes(target)) state.eliminated.push(target);
+      state.eliminated.push(card);
       state.fresh = null;
+      state.burnTarget = card; // chainable: another same-rank card may follow
       if (p.hand.length === 0) {
         return { type: 'burnOk', burner, card, roundWin: roundWin(burner) };
       }

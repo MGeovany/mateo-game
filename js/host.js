@@ -106,7 +106,9 @@ const Host = (() => {
       deckCount: S.deck.length,
       discardTop: Game.discardTop(),
       fresh: S.fresh,
+      burnTarget: S.burnTarget,
       eliminatedCount: S.eliminated.length,
+      eliminatedTop: S.eliminated[S.eliminated.length - 1] || null,
       drawn: S.drawn ? (viewer === S.current ? S.drawn : true) : null,
       ctx: {
         burner: S.ctx.burner,

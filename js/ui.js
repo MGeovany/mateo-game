@@ -161,16 +161,28 @@ const UI = (() => {
     label.textContent = 'DESCARTE';
     pile.appendChild(label);
 
-    // Eliminated (burned) cards pile
+    // Eliminated (burned) cards pile. While the last burned card is still
+    // the active burn target, show its face so players know what to match
     let burned = $('#burned-pile');
     if (burned) burned.remove();
     if (snap.eliminatedCount > 0) {
       burned = document.createElement('div');
       burned.className = 'pile';
       burned.id = 'burned-pile';
-      burned.innerHTML =
-        `<div class="burned-stack">🔥</div>` +
-        `<span class="pile-label">QUEMADAS (${snap.eliminatedCount})</span>`;
+      const chainActive = snap.burnTarget && snap.eliminatedTop &&
+        snap.burnTarget.rank === snap.eliminatedTop.rank &&
+        snap.burnTarget.suit === snap.eliminatedTop.suit;
+      if (chainActive) {
+        const topCard = cardEl(snap.eliminatedTop);
+        topCard.classList.add('burn-glow');
+        burned.appendChild(topCard);
+      } else {
+        burned.innerHTML = `<div class="burned-stack">🔥</div>`;
+      }
+      const l = document.createElement('span');
+      l.className = 'pile-label';
+      l.textContent = `QUEMADAS (${snap.eliminatedCount})`;
+      burned.appendChild(l);
       $('.table-center').appendChild(burned);
     }
 
@@ -235,7 +247,7 @@ const UI = (() => {
         if (snap.fresh) addBtn('⬆ TOMAR DESCARTE', 'btn-small', () => send({ a: 'takeDiscard' }));
         addBtn('📣 ¡MATEO!', 'btn-danger', () => send({ a: 'mateo' }));
       }
-      if (snap.fresh && me.hand.length > 0) {
+      if (snap.burnTarget && me.hand.length > 0) {
         addBtn('🔥 QUEMAR', 'btn-warn', () => { AudioFX.click(); send({ a: 'burnStart' }); });
       }
     }
@@ -267,11 +279,13 @@ const UI = (() => {
           ? 'Esperando a que los demás confirmen…'
           : `Toca 2 de tus cartas para verlas (${me.peeked}/2) y CONFIRMA`;
         break;
-      case 'turn':
+      case 'turn': {
+        const burnHint = snap.burnTarget ? ` (puedes 🔥 QUEMAR un ${snap.burnTarget.rank})` : '';
         msg = isCurrent
           ? 'Roba del mazo, toma el descarte, quema o grita ¡MATEO!'
-          : `${curName} está jugando… (puedes 🔥 QUEMAR el descarte)`;
+          : `${curName} está jugando…${burnHint}`;
         break;
+      }
       case 'drawn':
         msg = isCurrent
           ? (swapMode ? 'Elige cuál de tus cartas reemplazar' : '')
@@ -301,7 +315,7 @@ const UI = (() => {
         break;
       case 'burn':
         msg = snap.ctx.burner === myIdx
-          ? `🔥 Elige tu carta a quemar (¿tienes un ${snap.fresh?.rank}?)`
+          ? `🔥 Elige tu carta a quemar (¿tienes un ${snap.burnTarget?.rank}?)`
           : `🔥 ${snap.players[snap.ctx.burner].name.toUpperCase()} intenta quemar…`;
         break;
     }

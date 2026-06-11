@@ -33,7 +33,18 @@ console.assert(S.players[1].hand.length===3,'burner hand shrank');
 console.assert(S.eliminated.length===2,'both cards eliminated from the game');
 console.assert(S.fresh===null,'fresh discard gone');
 console.assert(Game.takeDiscard()===null,'next player cannot take a burned discard');
-console.assert(!Game.startBurn(2),'cannot burn the same discard twice');
+
+// chain burn: the burner's 2 is the new target -> a second 2 can follow
+console.assert(S.burnTarget && S.burnTarget.rank==='2','burned card is the new burn target');
+S.players[1].hand[0] = {rank:'2',suit:'♦'};
+console.assert(Game.startBurn(1),'chain burn start');
+res = Game.burnPick(0);
+console.assert(res.type==='burnOk' && S.players[1].hand.length===2,'chain burn ok');
+console.assert(S.eliminated.length===3,'chained card eliminated too');
+console.assert(S.burnTarget.suit==='♦','target advanced to the last burned card');
+console.assert(S.eliminated[S.eliminated.length-1]===S.burnTarget,'eliminated top is the target');
+// give p1 a replacement card so later hand-size expectations hold
+S.players[1].hand.push({rank:'5',suit:'♠'});
 
 // p1 normal turn: draw + swap -> the replaced card becomes fresh, p2 takes it
 Game.drawFromDeck();

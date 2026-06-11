@@ -5,7 +5,7 @@
 // Bumped on every release that changes the host<->guest message shape.
 // Host and guests must match: a cached old version on one device would
 // otherwise break the game silently (e.g. missing snapshot fields).
-const PROTOCOL_VERSION = 2;
+const PROTOCOL_VERSION = 3;
 
 const Net = (() => {
   let peer = null;
