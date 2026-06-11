@@ -16,11 +16,28 @@ const Host = (() => {
   }
 
   function addGuest(name, conn) {
-    if (started || lobby.length >= 4) {
-      Net.sendTo(conn, { t: 'rejected', reason: started ? 'started' : 'full' });
+    const clean = (name || '').trim().slice(0, 10);
+    if (started) {
+      // Reconnection: a disconnected player may rejoin with the same name
+      const idx = lobby.findIndex(
+        (p) => p.disconnected && p.name.toLowerCase() === clean.toLowerCase()
+      );
+      if (idx !== -1) {
+        lobby[idx].conn = conn;
+        lobby[idx].disconnected = false;
+        Net.sendTo(conn, { t: 'lobby', players: lobby.map((x) => x.name), you: idx });
+        Net.sendTo(conn, snapshotFor(idx));
+        emit({ name: 'rejoined', player: idx });
+        return;
+      }
+      Net.sendTo(conn, { t: 'rejected', reason: 'started' });
       return;
     }
-    lobby.push({ name: name.slice(0, 10) || `Jugador ${lobby.length + 1}`, conn });
+    if (lobby.length >= 4) {
+      Net.sendTo(conn, { t: 'rejected', reason: 'full' });
+      return;
+    }
+    lobby.push({ name: clean || `Jugador ${lobby.length + 1}`, conn });
     broadcastLobby();
   }
 
@@ -39,6 +56,9 @@ const Host = (() => {
       lobby.splice(idx, 1);
       broadcastLobby();
     } else {
+      // Keep the seat: the player can reconnect with the same name
+      lobby[idx].conn = null;
+      lobby[idx].disconnected = true;
       emit({ name: 'left', player: idx });
     }
   }
@@ -73,13 +93,16 @@ const Host = (() => {
       you: viewer,
       players: S.players.map((p, idx) => ({
         name: p.name,
-        score: p.score,
+        stars: p.stars,
         ready: p.ready,
+        disconnected: lobby[idx] ? !!lobby[idx].disconnected : false,
         peeked: viewer === idx ? p.peeked.size : undefined,
         hand: p.hand.map((card, i) => (isVisible(viewer, idx, i) ? card : null)),
       })),
       deckCount: S.deck.length,
       discardTop: Game.discardTop(),
+      fresh: S.fresh,
+      eliminatedCount: S.eliminated.length,
       drawn: S.drawn ? (viewer === S.current ? S.drawn : true) : null,
       ctx: {
         burner: S.ctx.burner,
@@ -162,7 +185,7 @@ const Host = (() => {
         if (!res) break;
         pushState();
         emit({ name: 'discard', player: from });
-        maybeRoundEnd(res.endTurn);
+        maybeRoundEnd(res.roundWin);
         break;
       }
       case 'discardDrawn': {
@@ -171,7 +194,7 @@ const Host = (() => {
         if (!res) break;
         pushState();
         emit({ name: 'discard', player: from });
-        maybeRoundEnd(res.endTurn);
+        maybeRoundEnd(res.roundWin);
         break;
       }
       case 'usePower': {
@@ -191,14 +214,14 @@ const Host = (() => {
         if (res.type === 'blindSwap') {
           pushState();
           emit({ name: 'blindSwap', player: actor, target: res.player });
-          maybeRoundEnd(res.endTurn);
+          maybeRoundEnd(res.roundWin);
           break;
         }
         // peekOwn / peekOther: only the power user sees the card
         addReveal(res.player, res.card, [actor], 2500);
         emit({ name: 'flip' }, actor);
         emit({ name: 'peeked', player: actor, target: res.player });
-        maybeRoundEnd(res.endTurn);
+        maybeRoundEnd(res.roundWin);
         break;
       }
       case 'combineStart': {
@@ -215,7 +238,7 @@ const Host = (() => {
         if (res.type === 'combineOk') {
           pushState();
           emit({ name: 'combineOk', player: actor, cards: res.cards });
-          maybeRoundEnd(res.roundEnd || res.endTurn);
+          maybeRoundEnd(res.roundWin);
           break;
         }
         // combineFail: everyone sees the two wrong cards for a moment
@@ -223,7 +246,7 @@ const Host = (() => {
         pushState();
         emit({ name: 'combineFail', player: actor, cards: res.cards });
         scheduleRevealClear(2200);
-        maybeRoundEnd(res.endTurn);
+        maybeRoundEnd(res.roundWin);
         break;
       }
       case 'cancel': {
@@ -242,7 +265,7 @@ const Host = (() => {
         if (res.type === 'burnOk') {
           pushState();
           emit({ name: 'burnOk', player: from, card: res.card });
-          maybeRoundEnd(res.roundEnd);
+          maybeRoundEnd(res.roundWin);
           break;
         }
         // burnFail: everyone sees the failed card briefly
@@ -255,7 +278,12 @@ const Host = (() => {
       case 'mateo': {
         if (!isCurrent || S.phase !== 'turn') break;
         const res = Game.declareMateo();
-        if (res) roundEndFlow();
+        if (!res) break;
+        if (res.type === 'mateoWin') { roundEndFlow(); break; }
+        // Failed or tied call: the round continues; hands stay hidden so the
+        // memory game survives — everyone learns the card COUNTS only
+        pushState();
+        emit({ name: res.type, player: from, counts: res.counts, stars: res.stars });
         break;
       }
       case 'nextRound': {

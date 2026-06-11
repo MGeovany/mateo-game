@@ -109,9 +109,11 @@ const UI = (() => {
       seat.style.display = '';
       seat.classList.toggle('active-turn', p === snap.current && inPlay);
       seat.querySelector('.player-name').textContent =
-        (p === myIdx ? '★ ' : '') + pl.name.toUpperCase();
+        (p === myIdx ? '➤ ' : '') + pl.name.toUpperCase() + (pl.disconnected ? ' ⛔' : '');
       seat.querySelector('.player-score').textContent =
-        snap.phase === 'peek' ? (pl.ready ? '✔ LISTO' : '…') : `${pl.score}pts`;
+        snap.phase === 'peek' && !pl.disconnected
+          ? (pl.ready ? '✔ LISTO' : '…')
+          : '★'.repeat(pl.stars) + '☆'.repeat(Math.max(0, 3 - pl.stars));
 
       const hand = seat.querySelector('.hand');
       hand.innerHTML = '';
@@ -146,7 +148,11 @@ const UI = (() => {
     const pile = $('#discard-pile');
     pile.innerHTML = '';
     if (snap.discardTop) {
-      pile.appendChild(cardEl(snap.discardTop));
+      const top = cardEl(snap.discardTop);
+      // Only the fresh discard glows; a stale top (already burned over or
+      // taken past) is dimmed and can't be touched
+      top.classList.add(snap.fresh ? 'fresh-glow' : 'stale');
+      pile.appendChild(top);
     } else {
       pile.innerHTML = '<div class="pile-empty">DESCARTE</div>';
     }
@@ -154,6 +160,19 @@ const UI = (() => {
     label.className = 'pile-label';
     label.textContent = 'DESCARTE';
     pile.appendChild(label);
+
+    // Eliminated (burned) cards pile
+    let burned = $('#burned-pile');
+    if (burned) burned.remove();
+    if (snap.eliminatedCount > 0) {
+      burned = document.createElement('div');
+      burned.className = 'pile';
+      burned.id = 'burned-pile';
+      burned.innerHTML =
+        `<div class="burned-stack">🔥</div>` +
+        `<span class="pile-label">QUEMADAS (${snap.eliminatedCount})</span>`;
+      $('.table-center').appendChild(burned);
+    }
 
     // Drawn card: face up for the drawer, face down for everyone else
     let float = $('#drawn-float');
@@ -213,10 +232,10 @@ const UI = (() => {
     if (snap.phase === 'turn') {
       if (isCurrent) {
         addBtn('🂠 ROBAR', '', () => send({ a: 'draw' }));
-        if (snap.discardTop) addBtn('⬆ TOMAR DESCARTE', 'btn-small', () => send({ a: 'takeDiscard' }));
+        if (snap.fresh) addBtn('⬆ TOMAR DESCARTE', 'btn-small', () => send({ a: 'takeDiscard' }));
         addBtn('📣 ¡MATEO!', 'btn-danger', () => send({ a: 'mateo' }));
       }
-      if (snap.discardTop && me.hand.length > 0) {
+      if (snap.fresh && me.hand.length > 0) {
         addBtn('🔥 QUEMAR', 'btn-warn', () => { AudioFX.click(); send({ a: 'burnStart' }); });
       }
     }
@@ -282,7 +301,7 @@ const UI = (() => {
         break;
       case 'burn':
         msg = snap.ctx.burner === myIdx
-          ? `🔥 Elige tu carta a quemar (¿tienes un ${snap.discardTop?.rank}?)`
+          ? `🔥 Elige tu carta a quemar (¿tienes un ${snap.fresh?.rank}?)`
           : `🔥 ${snap.players[snap.ctx.burner].name.toUpperCase()} intenta quemar…`;
         break;
     }
@@ -334,8 +353,8 @@ const UI = (() => {
       '9': 'PODER: intercambio a ciegas con otro jugador',
     };
     $('#drawn-hint').textContent = isWild
-      ? '★ Q DE CORAZONES: ¡COMODÍN, VALE 0! ★'
-      : hints[card.rank] || `Valor: ${cardValue(card)} puntos`;
+      ? '★ Q DE CORAZONES: ¡COMODÍN! ★'
+      : hints[card.rank] || '';
 
     const actions = $('#drawn-actions');
     actions.innerHTML = '';
@@ -426,7 +445,8 @@ const UI = (() => {
     }
     if (s.phase === 'roundEnd' || s.phase === 'gameOver') return;
 
-    if (phaseChanged && s.phase === 'peek') {
+    // Covers game start, next round, and mid-game reconnection
+    if (!screens.game.classList.contains('active')) {
       show('game');
       started = true;
     }
@@ -486,13 +506,26 @@ const UI = (() => {
         shakeSeat(ev.player);
         flash(`❌ ${name(ev.player)} falló el trío (${cardLabel(ev.cards[0])}, ${cardLabel(ev.cards[1])}) → +1 carta`);
         break;
+      case 'mateoFail':
+        AudioFX.lose();
+        shakeSeat(ev.player);
+        flash(`📣 ¡${name(ev.player)} CANTÓ MATEO Y FALLÓ! Pierde 1 estrella · la ronda sigue (cartas: ${ev.counts.join('-')})`, 4000);
+        break;
+      case 'mateoTie':
+        AudioFX.burnFail();
+        flash(`📣 ${name(ev.player)} cantó MATEO pero hay empate: nadie gana estrella (cartas: ${ev.counts.join('-')})`, 4000);
+        break;
       case 'roundEnd':
         if (ev.reason === 'mateo') AudioFX.mateo();
         else AudioFX.win();
         flash('¡FIN DE RONDA! Revelando cartas…', 3400);
         break;
       case 'left':
-        flash(`⚠ ${name(ev.player)} SE DESCONECTÓ`, 6000);
+        flash(`⚠ ${name(ev.player)} SE DESCONECTÓ — puede volver a entrar con su nombre y el código`, 6000);
+        break;
+      case 'rejoined':
+        AudioFX.power();
+        flash(`✔ ${name(ev.player)} SE RECONECTÓ`, 4000);
         break;
     }
   }
@@ -517,15 +550,15 @@ const UI = (() => {
     if (!result) return;
     const over = snap.phase === 'gameOver';
 
-    $('#score-title').textContent = over ? '☠ GAME OVER ☠' : `FIN DE RONDA ${snap.round}`;
+    $('#score-title').textContent = over ? '🏆 ¡VICTORIA! 🏆' : `FIN DE RONDA ${snap.round}`;
     let sub = '';
     if (result.reason === 'mateo') {
       const caller = snap.players[result.caller].name.toUpperCase();
-      sub = result.success ? `📣 ${caller} cantó MATEO con éxito` : `📣 ${caller} falló su MATEO (+15)`;
-    } else if (result.reason === 'empty') {
-      sub = '🏆 ¡alguien se quedó sin cartas!';
+      sub = `📣 ${caller} ganó la ronda y obtiene ⭐ (primera en llegar a 3 gana)`;
+    } else if (result.reason === 'deck') {
+      sub = 'Se agotó el mazo: nadie gana estrella esta ronda';
     }
-    if (over) sub = `🏆 GANA ${snap.gameOver.winner.toUpperCase()} · PIERDE ${snap.gameOver.loser.toUpperCase()}`;
+    if (over) sub = `🏆 ${snap.gameOver.winner.toUpperCase()} LLEGÓ A 3 ESTRELLAS Y GANA EL JUEGO`;
     $('#score-subtitle').textContent = sub;
 
     const tbody = $('#score-table tbody');
@@ -533,8 +566,8 @@ const UI = (() => {
     result.rows.forEach((row) => {
       const tr = document.createElement('tr');
       if (over && row.name === snap.gameOver.winner) tr.className = 'winner';
-      if (over && row.name === snap.gameOver.loser) tr.className = 'loser';
-      tr.innerHTML = `<td>${row.name.toUpperCase()}</td><td>+${row.roundScore}</td><td>${row.total}</td>`;
+      const stars = '★'.repeat(row.stars) + '☆'.repeat(Math.max(0, 3 - row.stars));
+      tr.innerHTML = `<td>${row.name.toUpperCase()}</td><td>${stars}</td>`;
       tbody.appendChild(tr);
     });
 

@@ -103,7 +103,7 @@
       <h2 id="score-title">FIN DE RONDA</h2>
       <p id="score-subtitle" class="subtitle"></p>
       <table id="score-table">
-        <thead><tr><th>JUGADOR</th><th>RONDA</th><th>TOTAL</th></tr></thead>
+        <thead><tr><th>JUGADOR</th><th>ESTRELLAS</th></tr></thead>
         <tbody></tbody>
       </table>
       <button id="btn-next-round" class="btn btn-big hidden">SIGUIENTE RONDA ▶</button>
@@ -117,13 +117,15 @@
     <div class="modal-box rules-box">
       <p class="modal-title">📜 REGLAS</p>
       <div class="rules-text">
-        <p>• 4 cartas boca abajo por jugador. Al inicio ves 2 de las tuyas y confirmas con LISTO.</p>
+        <p>• OBJETIVO: el primer jugador en conseguir ⭐⭐⭐ 3 estrellas gana la partida.</p>
+        <p>• 4 cartas boca abajo por jugador. Al inicio ves 2 de las tuyas y CONFIRMAS.</p>
         <p>• En tu turno: roba del mazo, toma el descarte, o grita ¡MATEO!</p>
         <p>• Carta robada: cámbiala por una tuya, descártala, usa su poder o combina un trío.</p>
-        <p>• 🔥 QUEMAR: si recuerdas tener una carta igual al descarte, quémala. Si fallas: +1 carta de castigo.</p>
-        <p>• 7 = ver una carta tuya · 8 = ver una ajena · 9 = intercambio a ciegas · Q♥ = vale 0.</p>
-        <p>• ¡MATEO!: si tienes menos cartas que todos, no sumas puntos. Si no: +15 y el valor de tus cartas.</p>
-        <p>• Pierde quien llegue a 100 puntos. Gana el de menor puntaje.</p>
+        <p>• 🔥 QUEMAR: cualquiera puede quemar la carta recién descartada con una del mismo valor. Solo el primero llega. La quemada DESAPARECE del juego y el siguiente jugador pierde el derecho a tomarla. Si fallas: +1 carta de castigo.</p>
+        <p>• Solo el jugador siguiente puede tomar la carta descartada (si nadie la quemó).</p>
+        <p>• 7 = ver una carta tuya · 8 = ver una ajena · 9 = intercambio a ciegas · Q♥ = comodín.</p>
+        <p>• ¡MATEO! (solo en tu turno): si tienes MENOS cartas que todos → ganas la ronda y ⭐. Empate → nada. Si alguien tiene menos → pierdes ⭐ y la ronda sigue.</p>
+        <p>• Si te desconectas, vuelve a entrar con el mismo nombre y código de sala.</p>
       </div>
       <div class="modal-actions"><button id="btn-close-rules" class="btn">CERRAR</button></div>
     </div>
