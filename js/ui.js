@@ -634,7 +634,17 @@ const UI = (() => {
     $('#btn-join').disabled = true;
     Net.joinRoom(code, (err) => {
       $('#btn-join').disabled = false;
-      if (err) return lobbyError('sala no encontrada, revisa el código');
+      if (err) {
+        const errors = {
+          'peer-unavailable': 'sala no encontrada: revisa el código y que el anfitrión tenga la página abierta',
+          'timeout': 'no se pudo conectar con el anfitrión, intenta de nuevo',
+          'network': 'sin conexión con el servidor de salas: revisa tu internet e intenta de nuevo',
+          'server-error': 'el servidor de salas no responde, intenta en unos minutos',
+          'socket-error': 'sin conexión con el servidor de salas: revisa tu internet e intenta de nuevo',
+          'socket-closed': 'se cortó la conexión, intenta de nuevo',
+        };
+        return lobbyError(errors[err.type] || 'no se pudo entrar a la sala, intenta de nuevo');
+      }
       roomCode = code;
       $('#room-code').textContent = code;
       Net.sendToHost({ t: 'join', name: myName, v: PROTOCOL_VERSION });
