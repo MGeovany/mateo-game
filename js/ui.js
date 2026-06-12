@@ -743,5 +743,47 @@ const UI = (() => {
     if (snap) flash('✔ RECONECTADO', 2500);
   });
 
+  /* ---------- invite URL ---------- */
+  // Pre-fill room code if the page was opened with ?room=XXXX
+  (() => {
+    const param = new URLSearchParams(location.search).get('room');
+    if (param && /^[A-Z0-9]{4}$/i.test(param)) {
+      const codeEl = $('#join-code');
+      codeEl.value = param.toUpperCase();
+      codeEl.readOnly = true;
+      codeEl.style.color = 'var(--neon-yellow)';
+      $('#my-name').focus();
+    }
+  })();
+
+  async function shareInviteUrl() {
+    const code = (roomCode || $('#room-code').textContent).trim();
+    if (!code || code === '····' || code.length !== 4) return;
+    const url = `${location.origin}${location.pathname}?room=${code}`;
+    const btn = $('#btn-share-url');
+    const prev = btn.textContent;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Mateo', text: '¡Unite a mi partida de Mateo!', url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    AudioFX.click();
+    btn.classList.add('copied');
+    btn.textContent = '¡ENLACE COPIADO!';
+    setTimeout(() => { btn.classList.remove('copied'); btn.textContent = prev; }, 2000);
+  }
+
+  $('#btn-share-url').addEventListener('click', shareInviteUrl);
+
   return { onLobby, onState, onEvent };
 })();
