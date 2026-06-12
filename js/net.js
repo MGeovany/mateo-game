@@ -11,7 +11,7 @@ const PROTOCOL_VERSION = 4;
 const SERVER_URL =
   location.hostname === 'localhost' || location.hostname === '127.0.0.1'
     ? `http://${location.hostname}:4377`
-    : 'https://d2340jzxveu9gx.cloudfront.net';
+    : 'https://143-47-100-210.sslip.io';
 
 const Net = (() => {
   let socket = null;

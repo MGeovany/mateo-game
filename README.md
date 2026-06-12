@@ -59,15 +59,15 @@ Quedarte **sin cartas** (quemas/tríos) también gana la ronda. Si el mazo se ag
 ## 🛠 Stack
 
 - Frontend: HTML + CSS + JavaScript vanilla, sin build ni frameworks — hospedado gratis en **GitHub Pages**.
-- Backend: **Node + Socket.IO** (salas en memoria, servidor autoritativo, estado censurado por jugador, reconexión por nombre) — en **AWS EC2 + CloudFront**.
+- Backend: **Node + Socket.IO** (salas en memoria, servidor autoritativo, estado censurado por jugador, reconexión por nombre) — en **Oracle Cloud Always Free** (VM.Standard.E2.1.Micro, us-ashburn-2, HTTPS vía Caddy + sslip.io).
 - Sonidos sintetizados en tiempo real con **Web Audio API** (sin archivos de audio).
 - Animaciones CSS (reparto, flip 3D, quemado, shake, glow neón) y estética CRT con scanlines.
 
 ## ☁️ Deploy
 
 - **Frontend**: GitHub Pages sirve este repo tal cual (rama `main`).
-- **Backend**: AWS (cuenta propia) — EC2 `t4g.nano` (`mateo-server`, us-east-2) corre `server/` como servicio systemd en el puerto 4377, con una Elastic IP y **CloudFront** delante para HTTPS/WSS (`SERVER_URL` en `js/net.js`). Siempre encendido, sin cold starts.
-- Para actualizar el servidor tras un cambio en `server/`: `ssh` o SSM a la instancia y `cd /opt/mateo && git pull && sudo systemctl restart mateo`.
+- **Backend**: Oracle Cloud Always Free — `VM.Standard.E2.1.Micro` (`mateo-server`, us-ashburn-2) corre `server/` como servicio systemd en el puerto 4377, con **Caddy** delante para HTTPS/WSS en `143-47-100-210.sslip.io`. Siempre encendido, $0/mes.
+- Para actualizar el servidor: `ssh -i ~/.oci/mateo-instance-key ubuntu@143.47.100.210 "cd /opt/mateo && git pull && sudo systemctl restart mateo"`.
 
 ## 🚀 Desarrollo
 
