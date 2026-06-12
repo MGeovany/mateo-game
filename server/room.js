@@ -14,7 +14,18 @@ function createRoom(code) {
   let emptySince = null; // timestamp when the last connected player left
 
   /* ---------- membership ---------- */
-  function addPlayer(name, socket) {
+  // Cosmetics arrive from the client; cap lengths so nobody injects junk
+  function cleanCosmetics(c) {
+    c = c || {};
+    return {
+      avatar: String(c.avatar || '🙂').slice(0, 16),
+      dance: String(c.dance || '').slice(0, 4),
+      table: String(c.table || 'table-default').slice(0, 20),
+      cards: String(c.cards || 'cards-default').slice(0, 20),
+    };
+  }
+
+  function addPlayer(name, socket, cosmetics) {
     const clean = (name || '').trim().slice(0, 10);
     if (started) {
       // Reconnection: a disconnected player may rejoin with the same name
@@ -24,6 +35,7 @@ function createRoom(code) {
       if (idx !== -1) {
         players[idx].socket = socket;
         players[idx].disconnected = false;
+        players[idx].cosmetics = cleanCosmetics(cosmetics);
         emptySince = null;
         socket.emit('lobby', lobbyMsg(idx));
         socket.emit('state', snapshotFor(idx));
@@ -34,9 +46,24 @@ function createRoom(code) {
       return { error: 'started' };
     }
     if (players.length >= 4) return { error: 'full' };
-    players.push({ name: clean || `Jugador ${players.length + 1}`, socket, disconnected: false });
+    players.push({
+      name: clean || `Jugador ${players.length + 1}`,
+      socket,
+      disconnected: false,
+      cosmetics: cleanCosmetics(cosmetics),
+      lastDance: 0,
+    });
     broadcastLobby();
     return { idx: players.length - 1 };
+  }
+
+  // The host's (player 0) table + card style dress the whole room
+  function roomStyle() {
+    const host = players[0];
+    return {
+      table: host ? host.cosmetics.table : 'table-default',
+      cards: host ? host.cosmetics.cards : 'cards-default',
+    };
   }
 
   function dropBySocket(socket) {
@@ -62,7 +89,13 @@ function createRoom(code) {
   }
 
   function lobbyMsg(you) {
-    return { t: 'lobby', players: players.map((x) => x.name), you };
+    return {
+      t: 'lobby',
+      players: players.map((x) => x.name),
+      avatars: players.map((x) => x.cosmetics.avatar),
+      style: roomStyle(),
+      you,
+    };
   }
 
   function broadcastLobby() {
@@ -90,10 +123,12 @@ function createRoom(code) {
       round: st.round,
       current: st.current,
       you: viewer,
+      style: roomStyle(),
       players: st.players.map((p, idx) => ({
         name: p.name,
         stars: p.stars,
         ready: p.ready,
+        avatar: players[idx] ? players[idx].cosmetics.avatar : '🙂',
         disconnected: players[idx] ? !!players[idx].disconnected : false,
         peeked: viewer === idx ? p.peeked.size : undefined,
         hand: p.hand.map((card, i) => (isVisible(viewer, idx, i) ? card : null)),
@@ -302,6 +337,17 @@ function createRoom(code) {
         pushState();
         emitEvent({ name: 'burnFail', player: from, card: res.card });
         scheduleRevealClear(2200);
+        break;
+      }
+      case 'dance': {
+        // Taunt: broadcast the player's equipped dance. 8s cooldown so
+        // nobody floods the table with emojis.
+        const p = players[from];
+        if (!started || !p || !p.cosmetics.dance) break;
+        const now = Date.now();
+        if (now - p.lastDance < 8000) break;
+        p.lastDance = now;
+        emitEvent({ name: 'dance', player: from, emoji: p.cosmetics.dance });
         break;
       }
       case 'mateo': {

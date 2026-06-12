@@ -88,6 +88,13 @@ const AudioFX = (() => {
 
     turn()   { tone({ freq: 700, dur: 0.07, vol: 0.09 }); tone({ freq: 1050, dur: 0.1, vol: 0.09, delay: 0.08 }); },
 
+    coin()   { tone({ freq: 988, dur: 0.08, vol: 0.12 }); tone({ freq: 1319, dur: 0.22, vol: 0.12, delay: 0.08 }); },
+
+    dance() {
+      [392, 523, 659, 523, 784, 659, 1046].forEach((f, i) =>
+        tone({ freq: f, dur: 0.1, type: 'square', vol: 0.1, delay: i * 0.11 }));
+    },
+
     mateo() {
       [523, 659, 784, 1046, 784, 1046].forEach((f, i) =>
         tone({ freq: f, dur: 0.13, type: 'square', vol: 0.12, delay: i * 0.12 }));

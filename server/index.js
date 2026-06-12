@@ -7,7 +7,7 @@ const { Server } = require('socket.io');
 const { createRoom } = require('./room');
 
 // Must match the client's PROTOCOL_VERSION (js/net.js)
-const PROTOCOL_VERSION = 4;
+const PROTOCOL_VERSION = 5;
 const PORT = process.env.PORT || 4377;
 const ROOM_TTL_MS = 15 * 60 * 1000; // drop rooms abandoned for 15 min
 
@@ -39,7 +39,7 @@ io.on('connection', (socket) => {
     const code = randomCode();
     const room = createRoom(code);
     rooms.set(code, room);
-    const res = room.addPlayer(data.name, socket);
+    const res = room.addPlayer(data.name, socket, data.cosmetics);
     socket.data.code = code;
     socket.data.idx = res.idx;
     ack({ code });
@@ -50,7 +50,7 @@ io.on('connection', (socket) => {
     if (!data || data.v !== PROTOCOL_VERSION) return ack({ error: 'version' });
     const room = rooms.get(String(data.code || '').toUpperCase());
     if (!room) return ack({ error: 'not-found' });
-    const res = room.addPlayer(data.name, socket);
+    const res = room.addPlayer(data.name, socket, data.cosmetics);
     if (res.error) return ack({ error: res.error });
     socket.data.code = room.code;
     socket.data.idx = res.idx;

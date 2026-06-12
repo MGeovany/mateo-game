@@ -4,7 +4,7 @@
  * P2P version, so the UI code is mostly agnostic.
  */
 // Must match the server's PROTOCOL_VERSION (server/index.js)
-const PROTOCOL_VERSION = 4;
+const PROTOCOL_VERSION = 5;
 
 // Backend URL: local server during development; in production, CloudFront
 // (HTTPS/WSS) in front of the EC2 'mateo-server' instance (AWS 851725556357).
@@ -36,7 +36,7 @@ const Net = (() => {
     socket.on('connect', () => {
       // Transparent rejoin after a network drop / phone screen lock
       if (everConnected && session) {
-        socket.emit('join', { ...session, v: PROTOCOL_VERSION }, (res) => {
+        socket.emit('join', { ...session, v: PROTOCOL_VERSION, cosmetics: Economy.cosmetics() }, (res) => {
           if (res && res.error) fire('_dropped', { fatal: true });
         });
       }
@@ -50,7 +50,7 @@ const Net = (() => {
   function createRoom(name, cb) {
     connect();
     const fail = setTimeout(() => cb({ type: 'timeout' }), 12000);
-    socket.emit('create', { name, v: PROTOCOL_VERSION }, (res) => {
+    socket.emit('create', { name, v: PROTOCOL_VERSION, cosmetics: Economy.cosmetics() }, (res) => {
       clearTimeout(fail);
       if (!res || res.error) return cb({ type: (res && res.error) || 'unknown' });
       session = { code: res.code, name };
@@ -61,7 +61,7 @@ const Net = (() => {
   function joinRoom(code, name, cb) {
     connect();
     const fail = setTimeout(() => cb({ type: 'timeout' }), 12000);
-    socket.emit('join', { code: code.toUpperCase(), name, v: PROTOCOL_VERSION }, (res) => {
+    socket.emit('join', { code: code.toUpperCase(), name, v: PROTOCOL_VERSION, cosmetics: Economy.cosmetics() }, (res) => {
       clearTimeout(fail);
       if (!res || res.error) return cb({ type: (res && res.error) || 'unknown' });
       session = { code: res.code, name };

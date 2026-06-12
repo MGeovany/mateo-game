@@ -39,7 +39,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=6" />
+  <link rel="stylesheet" href="css/style.css?v=7" />
 
   <script type="application/ld+json">
   {
@@ -93,7 +93,24 @@
       </div>
 
       <p id="lobby-error" class="lobby-error"></p>
-      <button id="btn-rules" class="btn btn-small">? REGLAS</button>
+      <div class="lobby-footer">
+        <button id="btn-rules" class="btn btn-small">? REGLAS</button>
+        <button id="btn-shop" class="btn btn-small btn-shop">🛒 TIENDA <span class="coin-balance">🪙 0</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SHOP -->
+  <section id="screen-shop" class="screen">
+    <div class="shop-box">
+      <div class="shop-header">
+        <h2 class="shop-title">🛒 TIENDA</h2>
+        <span class="coin-balance shop-coins">🪙 0</span>
+      </div>
+      <p class="shop-earn-hint">gana 🪙 — invitar: +5 · ronda: +3 · partida: +10</p>
+      <div id="shop-tabs" class="shop-tabs"></div>
+      <div id="shop-grid" class="shop-grid"></div>
+      <button id="btn-close-shop" class="btn">◀ VOLVER</button>
     </div>
   </section>
 
@@ -197,9 +214,10 @@
   </div>
 
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
-  <script src="js/audio.js?v=6"></script>
-  <script src="js/cards.js?v=6"></script>
-  <script src="js/net.js?v=6"></script>
-  <script src="js/ui.js?v=6"></script>
+  <script src="js/audio.js?v=7"></script>
+  <script src="js/economy.js?v=7"></script>
+  <script src="js/cards.js?v=7"></script>
+  <script src="js/net.js?v=7"></script>
+  <script src="js/ui.js?v=7"></script>
 </body>
 </html>

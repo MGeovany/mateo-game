@@ -14,6 +14,8 @@ const UI = (() => {
   let lastTurn = -1;
   let started = false;
   let msgOverride = null; // { text, until }
+  let lastStars = 0;          // my stars before round end → coin rewards
+  let danceCooldownUntil = 0; // client-side dance button cooldown
 
   const screens = {
     lobby: $('#screen-lobby'),
@@ -102,9 +104,18 @@ const UI = (() => {
     return !$('#drawn-modal').classList.contains('hidden');
   }
 
+  // The host's equipped table + card styles dress the whole room
+  function applyRoomStyle(style) {
+    if (!style) return;
+    const table = $('#table');
+    table.dataset.theme = style.table || 'table-default';
+    table.dataset.deck = style.cards || 'cards-default';
+  }
+
   /* ---------- render ---------- */
   function render() {
     if (!snap) return;
+    applyRoomStyle(snap.style);
     const inPlay = !['peek', 'roundEnd', 'gameOver'].includes(snap.phase);
 
     document.querySelectorAll('.seat').forEach((s) => (s.style.display = 'none'));
@@ -113,7 +124,7 @@ const UI = (() => {
       seat.style.display = '';
       seat.classList.toggle('active-turn', p === snap.current && inPlay);
       seat.querySelector('.player-name').textContent =
-        (p === myIdx ? '➤ ' : '') + pl.name.toUpperCase() + (pl.disconnected ? ' ⛔' : '');
+        (p === myIdx ? '➤ ' : '') + (pl.avatar || '') + ' ' + pl.name.toUpperCase() + (pl.disconnected ? ' ⛔' : '');
       seat.querySelector('.player-score').textContent =
         snap.phase === 'peek' && !pl.disconnected
           ? (pl.ready ? '✔ LISTO' : '…')
@@ -263,6 +274,19 @@ const UI = (() => {
     }
     if (snap.phase === 'drawn' && isCurrent && swapMode) {
       addBtn('✖ VOLVER', 'btn-small', () => { swapMode = false; openDrawnModal(); });
+    }
+
+    // Taunt: dance for the table (any moment during play, 8s cooldown)
+    const danceEmoji = Economy.cosmetics().dance;
+    const inPlay = !['peek', 'roundEnd', 'gameOver'].includes(snap.phase);
+    if (danceEmoji && inPlay) {
+      const onCooldown = Date.now() < danceCooldownUntil;
+      addBtn(`${danceEmoji} BAILAR`, 'btn-small btn-dance' + (onCooldown ? ' cooling' : ''), () => {
+        if (Date.now() < danceCooldownUntil) return;
+        danceCooldownUntil = Date.now() + 8000;
+        send({ a: 'dance' });
+        render();
+      });
     }
   }
 
@@ -421,7 +445,8 @@ const UI = (() => {
     list.innerHTML = '';
     msg.players.forEach((name, i) => {
       const li = document.createElement('li');
-      li.textContent = `${i + 1}. ${name.toUpperCase()}${i === 0 ? ' 👑' : ''}${i === msg.you ? ' (TÚ)' : ''}`;
+      const avatar = (msg.avatars && msg.avatars[i]) || '';
+      li.textContent = `${i + 1}. ${avatar} ${name.toUpperCase()}${i === 0 ? ' 👑' : ''}${i === msg.you ? ' (TÚ)' : ''}`;
       list.appendChild(li);
     });
     for (let i = msg.players.length; i < 4; i++) {
@@ -447,6 +472,11 @@ const UI = (() => {
   function onState(s) {
     snap = s;
     myIdx = s.you;
+
+    // Track my stars during play so round-end can detect a gain (→ coins)
+    if (!['roundEnd', 'gameOver'].includes(s.phase) && myIdx >= 0 && s.players[myIdx]) {
+      lastStars = s.players[myIdx].stars;
+    }
 
     const phaseChanged = s.phase !== lastPhase;
     if (phaseChanged) {
@@ -546,7 +576,28 @@ const UI = (() => {
         AudioFX.power();
         flash(`✔ ${name(ev.player)} SE RECONECTÓ`, 4000);
         break;
+      case 'dance':
+        AudioFX.dance();
+        danceOverSeat(ev.player, ev.emoji);
+        flash(ev.player === myIdx
+          ? `${ev.emoji} ¡BAILANDO PARA LA MESA!`
+          : `${ev.emoji} ¡${name(ev.player)} TE ESTÁ BAILANDO!`, 3000);
+        break;
     }
+  }
+
+  // Big bouncing emoji + music notes over the dancer's seat for ~3s
+  function danceOverSeat(p, emoji) {
+    const seat = seatFor(p);
+    if (!seat) return;
+    const el = document.createElement('div');
+    el.className = 'dance-float';
+    el.innerHTML =
+      `<span class="dance-note">♪</span>` +
+      `<span class="dance-emoji">${emoji}</span>` +
+      `<span class="dance-note delayed">♫</span>`;
+    seat.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
   }
 
   function slamDiscard() {
@@ -597,6 +648,14 @@ const UI = (() => {
       : 'esperando a que el anfitrión inicie la siguiente ronda…';
     if (over) AudioFX.lose();
     show('score');
+
+    // Coin rewards: +3 per star earned this round, +10 for winning the game
+    const myStars = snap.players[myIdx] ? snap.players[myIdx].stars : 0;
+    if (myStars > lastStars) Economy.earn(3 * (myStars - lastStars), 'ronda ganada');
+    lastStars = myStars;
+    if (over && snap.gameOver.winner === snap.players[myIdx].name) {
+      Economy.earn(10, '¡PARTIDA GANADA!');
+    }
   }
 
   /* ---------- lobby wiring ---------- */
@@ -765,6 +824,7 @@ const UI = (() => {
     try {
       if (navigator.share) {
         await navigator.share({ title: 'Mateo', text: '¡Unite a mi partida de Mateo!', url });
+        Economy.earnShare(code);
         return;
       }
       await navigator.clipboard.writeText(url);
@@ -778,6 +838,7 @@ const UI = (() => {
       document.body.removeChild(ta);
     }
     AudioFX.click();
+    Economy.earnShare(code);
     btn.classList.add('copied');
     btn.textContent = '¡ENLACE COPIADO!';
     setTimeout(() => { btn.classList.remove('copied'); btn.textContent = prev; }, 2000);

@@ -46,6 +46,22 @@ La carta tomable/quemable brilla en amarillo; una carta ya superada se ve apagad
 | **8** | Ver una carta de otro jugador (solo tú la ves) |
 | **9** | Intercambiar una carta tuya con otro jugador, ambas boca abajo; solo tú sabes qué posición intercambiaste |
 
+## 🪙 Monedas y tienda
+
+Cada dispositivo acumula monedas (guardadas localmente):
+
+| Acción | Recompensa |
+|---|---|
+| Compartir el enlace de invitación (1 vez por sala) | +5 🪙 |
+| Ganar una ronda (⭐) | +3 🪙 |
+| Ganar la partida | +10 🪙 |
+
+En la **🛒 TIENDA** (desde el lobby) canjeas monedas por:
+
+- **Avatares, sombreros, caras y zapatos** — los demás jugadores ven tu combinación en la sala y en la mesa.
+- **Bailes** — un botón `BAILAR` durante la partida muestra tu baile sobre tu asiento a toda la mesa (cooldown 8s).
+- **Estilos de mesa y de cartas** — la mesa es del anfitrión: su estilo de mesa y dorso de cartas visten la sala para todos.
+
 ## 📣 Declarar Mateo
 
 Solo durante tu turno. Se comparan las **cantidades** de cartas:
