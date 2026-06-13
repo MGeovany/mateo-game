@@ -23,14 +23,22 @@ function shuffle(deck) {
   return deck;
 }
 
+// Point value of a card. Q♥ is the wildcard and worth 0.
+function cardValue(card) {
+  if (card.rank === 'Q' && card.suit === '♥') return 0;
+  return RANKS.indexOf(card.rank) + 1; // A=1 ... 10=10, J=11, Q=12, K=13
+}
+
 function createGame() {
   const PEEK_LIMIT = 2;
-  const WIN_STARS = 3;
+  const LOSE_SCORE = 100; // whoever reaches this loses the game
+  const MATEO_PENALTY = 15; // extra points for calling Mateo and not winning
+  const EMPTY_BONUS = -10; // getting rid of every card
 
   const state = {
     phase: 'lobby',
     round: 1,
-    players: [],          // { name, hand: [card], stars, ready, peeked: Set }
+    players: [],          // { name, hand: [card], score, ready, peeked: Set }
     deck: [],
     discard: [],          // top = last element
     eliminated: [],       // burned cards: out of the game, never reshuffled
@@ -45,13 +53,13 @@ function createGame() {
     startingPlayer: 0,
     drawn: null,          // card held after drawing
     ctx: {},              // transient selection context (burn / combine / power 9)
-    roundResult: null,    // { reason, caller, rows: [{name, stars}] }
-    gameOver: null,       // { winner }
+    roundResult: null,    // { reason, caller, callerWon, rows: [{name, points, sum, total}] }
+    gameOver: null,       // { loser, winner }
   };
 
   function setup(names) {
     state.players = names.map((name) => ({
-      name, hand: [], stars: 0, ready: false, peeked: new Set(),
+      name, hand: [], score: 0, ready: false, peeked: new Set(),
     }));
     state.round = 1;
     state.startingPlayer = 0;
@@ -138,9 +146,10 @@ function createGame() {
     return card;
   }
 
-  // Only the player right after the discarder may take the fresh discard
+  // On your turn you may grab the top card of the discard pile (the center),
+  // whether it is the freshly discarded card or an older one
   function takeDiscard() {
-    if (state.phase !== 'turn' || !state.fresh) return null;
+    if (state.phase !== 'turn' || state.discard.length === 0) return null;
     state.drawn = state.discard.pop();
     state.fresh = null;
     state.burnTarget = null; // the card left the table: nothing to burn against
@@ -273,10 +282,9 @@ function createGame() {
   /* ---------- burn ----------
    * Anyone may burn the current burn target with a same-rank card. The phase
    * lock means only the first claimer gets the attempt. A successful burn
-   * eliminates the target, kills the next player's right to take the
-   * discard, and the burner's card becomes the NEW burn target — so a player
-   * holding two Ks can burn both onto a discarded K (chain burning). Any
-   * new discard resets the target.
+   * eliminates both cards and clears the target: once a card has been burned,
+   * nobody (not even the burner) can burn that card again. Only a new discard
+   * creates a fresh burn target.
    */
   function startBurn(playerIdx) {
     if (state.phase !== 'turn' || !state.burnTarget) return false;
@@ -297,15 +305,14 @@ function createGame() {
 
     if (card.rank === target.rank) {
       p.hand.splice(cardIdx, 1);
-      // First burn of a chain: the fresh card still sits on the pile
+      // The freshly discarded card still sits on the pile: remove it
       if (discardTop() === target) state.discard.pop();
-      // Keep order: the last eliminated card is always the current target
       if (!state.eliminated.includes(target)) state.eliminated.push(target);
       state.eliminated.push(card);
       state.fresh = null;
-      state.burnTarget = card; // chainable: another same-rank card may follow
+      state.burnTarget = null; // burned card is done — no further burns on it
       if (p.hand.length === 0) {
-        return { type: 'burnOk', burner, card, roundWin: roundWin(burner) };
+        return { type: 'burnOk', burner, card, roundWin: endRound('empty', burner) };
       }
       return { type: 'burnOk', burner, card };
     }
@@ -318,45 +325,62 @@ function createGame() {
   /* ---------- turn / round flow ---------- */
   function endTurn() {
     const p = currentPlayer();
-    if (p.hand.length === 0) return roundWin(state.current);
+    if (p.hand.length === 0) return endRound('empty', state.current);
     state.current = (state.current + 1) % state.players.length;
     state.phase = 'turn';
     return null;
   }
 
-  /* Mateo: compare hand COUNTS. Strictly fewest → win the round (+1 star).
-   * Tie for fewest → nothing happens. More than someone → lose 1 star.
-   * On fail/tie the round continues and the call consumes the turn. */
+  /* Mateo: calling ALWAYS ends the round — there is no tie that lets play
+   * continue. Scoring is handled in endRound: the caller wins (0 points) only
+   * if they hold the strictly-lowest card value; otherwise they take their
+   * card value plus a penalty. */
   function declareMateo() {
     if (state.phase !== 'turn') return null;
-    const caller = state.current;
-    const counts = state.players.map((p) => p.hand.length);
-    const minOthers = Math.min(...counts.filter((_, i) => i !== caller));
-
-    if (counts[caller] < minOthers) {
-      return { type: 'mateoWin', caller, counts, roundWin: roundWin(caller) };
-    }
-    const tie = counts[caller] === minOthers;
-    if (!tie && state.players[caller].stars > 0) state.players[caller].stars--;
-    state.current = (state.current + 1) % state.players.length;
-    state.phase = 'turn';
-    return {
-      type: tie ? 'mateoTie' : 'mateoFail',
-      caller, counts,
-      stars: state.players[caller].stars,
-    };
+    return endRound('mateo', state.current);
   }
 
-  function roundWin(winnerIdx) {
-    const p = state.players[winnerIdx];
-    p.stars += 1;
-    state.roundResult = {
-      reason: 'mateo',
-      caller: winnerIdx,
-      rows: state.players.map((pl) => ({ name: pl.name, stars: pl.stars })),
-    };
-    if (p.stars >= WIN_STARS) {
-      state.gameOver = { winner: p.name };
+  /* Score everyone, accumulate totals, and decide whether the game is over.
+   *   reason 'mateo'  → caller wins (0) if strictly lowest, else sum + 15
+   *   empty hand      → -10 (got rid of every card)
+   *   everyone else   → the sum of their card values
+   * Whoever reaches LOSE_SCORE loses; the lowest total wins. */
+  function endRound(reason, caller) {
+    const sums = state.players.map((p) =>
+      p.hand.reduce((s, c) => s + cardValue(c), 0));
+    const minSum = Math.min(...sums);
+    // The caller only "wins" if they are the sole, strictly-lowest hand
+    const lowestCount = sums.filter((s) => s === minSum).length;
+    const soleLowest = lowestCount === 1 ? sums.indexOf(minSum) : -1;
+    const callerWon = reason === 'mateo' && caller === soleLowest;
+
+    const rows = state.players.map((p, i) => {
+      let points;
+      if (p.hand.length === 0) {
+        points = EMPTY_BONUS;
+      } else if (reason === 'mateo' && i === caller) {
+        points = callerWon ? 0 : sums[i] + MATEO_PENALTY;
+      } else {
+        points = sums[i];
+      }
+      p.score += points;
+      return { name: p.name, points, sum: sums[i], total: p.score };
+    });
+
+    state.roundResult = { reason, caller, callerWon, rows };
+
+    // Game over once anyone reaches the losing threshold
+    const maxTotal = Math.max(...state.players.map((p) => p.score));
+    if (maxTotal >= LOSE_SCORE) {
+      let loser = 0, winner = 0;
+      state.players.forEach((p, i) => {
+        if (p.score > state.players[loser].score) loser = i;
+        if (p.score < state.players[winner].score) winner = i;
+      });
+      state.gameOver = {
+        loser: state.players[loser].name,
+        winner: state.players[winner].name,
+      };
       state.phase = 'gameOver';
     } else {
       state.phase = 'roundEnd';
@@ -364,15 +388,9 @@ function createGame() {
     return state.roundResult;
   }
 
-  // Deck and discard exhausted: nobody earns a star, deal the next round
+  // Deck and discard exhausted: everyone simply banks their card values
   function endRoundNoWinner() {
-    state.roundResult = {
-      reason: 'deck',
-      caller: null,
-      rows: state.players.map((pl) => ({ name: pl.name, stars: pl.stars })),
-    };
-    state.phase = 'roundEnd';
-    return state.roundResult;
+    return endRound('deck', null);
   }
 
   function nextRound() {

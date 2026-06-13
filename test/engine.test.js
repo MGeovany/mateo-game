@@ -27,15 +27,12 @@ console.assert(S.eliminated.length===2,'both cards eliminated from the game');
 console.assert(S.fresh===null,'fresh discard gone');
 console.assert(Game.takeDiscard()===null,'next player cannot take a burned discard');
 
-// chain burn: the burner's 2 is the new target -> a second 2 can follow
-console.assert(S.burnTarget && S.burnTarget.rank==='2','burned card is the new burn target');
+// no chaining: once a card is burned the target is cleared, so nobody can
+// burn that same card again (not even the burner holding another 2)
+console.assert(S.burnTarget===null,'burn target cleared after a burn');
 S.players[1].hand[0] = {rank:'2',suit:'♦'};
-console.assert(Game.startBurn(1),'chain burn start');
-res = Game.burnPick(0);
-console.assert(res.type==='burnOk' && S.players[1].hand.length===2,'chain burn ok');
-console.assert(S.eliminated.length===3,'chained card eliminated too');
-console.assert(S.burnTarget.suit==='♦','target advanced to the last burned card');
-console.assert(S.eliminated[S.eliminated.length-1]===S.burnTarget,'eliminated top is the target');
+console.assert(!Game.startBurn(1),'cannot burn again — there is no target');
+console.assert(S.phase==='turn','still p1 turn, burn was not allowed');
 // give p1 a replacement card so later hand-size expectations hold
 S.players[1].hand.push({rank:'5',suit:'♠'});
 
@@ -82,35 +79,80 @@ Game.powerTarget(1,0);
 res = Game.powerTarget(2,0);
 console.assert(res.type==='blindSwap' && S.players[1].hand[0]===theirs && S.players[2].hand[0]===mine,'9 swap');
 
-// p2 mateo fail: p3 has fewest cards -> p2 loses a star, round continues
-console.assert(S.current===2,'p2 turn');
-S.players[2].stars = 1;
+// ---- points scoring: a Mateo call always ends the round ----
+S.phase = 'turn'; S.current = 2;
+S.players.forEach((p) => { p.score = 0; });
+S.players[0].hand = [{rank:'K',suit:'♠'}]; // 13
+S.players[1].hand = [{rank:'5',suit:'♠'}]; // 5
+S.players[2].hand = [{rank:'2',suit:'♠'}]; // 2  (caller, strictly lowest)
+S.players[3].hand = [{rank:'9',suit:'♠'}]; // 9
 res = Game.declareMateo();
-console.assert(res.type==='mateoFail' && S.players[2].stars===0,'mateo fail loses a star');
-console.assert(S.phase==='turn' && S.current===3,'round continues, call consumed the turn');
+console.assert(S.phase==='roundEnd','mateo ends the round');
+console.assert(res.callerWon===true,'caller had the lowest value → won');
+console.assert(res.rows[2].points===0 && S.players[2].score===0,'winning caller scores 0');
+console.assert(res.rows[0].points===13 && res.rows[1].points===5 && res.rows[3].points===9,'others bank their card value');
 
-// p3 mateo win: strictly fewest cards -> star + round end
-res = Game.declareMateo();
-console.assert(res.type==='mateoWin' && S.players[3].stars===1 && S.phase==='roundEnd','mateo win earns a star');
-console.assert(S.roundResult.rows[3].stars===1,'round result carries stars');
-
-// next round: starter rotates, table resets
+// next round: starter rotates, table resets, but SCORES persist
 Game.nextRound();
 console.assert(S.round===2 && S.phase==='peek' && S.current===1,'round 2, starter rotated');
 console.assert(S.eliminated.length===0 && S.fresh===null,'piles reset');
-
-// mateo tie: same minimum count -> nobody gains or loses, round continues
+console.assert(S.players[0].score===13,'scores accumulate across rounds');
 [0,1,2,3].forEach(i=>Game.setReady(i));
-const starsBefore = S.players[1].stars;
-res = Game.declareMateo();
-console.assert(res.type==='mateoTie' && S.players[1].stars===starsBefore,'tie changes nothing');
-console.assert(S.phase==='turn' && S.current===2,'round continues after tie');
 
-// third star wins the game
-S.players[3].stars = 2;
-S.players[3].hand = S.players[3].hand.slice(0,2);
-S.current = 3;
+// failed Mateo: caller is not the strictly-lowest → card value + 15 penalty
+S.phase = 'turn'; S.current = 1;
+S.players[0].hand = [{rank:'3',suit:'♠'}]; // 3 (lowest)
+S.players[1].hand = [{rank:'7',suit:'♠'}]; // 7 caller → 7+15 = 22
+S.players[2].hand = [{rank:'8',suit:'♠'}];
+S.players[3].hand = [{rank:'8',suit:'♣'}];
+const total1Before = S.players[1].score;
 res = Game.declareMateo();
-console.assert(res.type==='mateoWin' && S.phase==='gameOver' && S.gameOver.winner==='Ileana','3 stars wins the game');
+console.assert(res.callerWon===false && res.rows[1].points===22,'failed mateo: card value + 15');
+console.assert(S.players[1].score===total1Before+22,'penalty added to the total');
+
+// tie at the lowest value → caller did NOT win (penalty still applies)
+Game.nextRound();
+[0,1,2,3].forEach(i=>Game.setReady(i));
+S.phase = 'turn'; S.current = 0;
+S.players[0].hand = [{rank:'4',suit:'♠'}]; // 4 caller
+S.players[1].hand = [{rank:'4',suit:'♥'}]; // 4 ties the caller
+S.players[2].hand = [{rank:'9',suit:'♠'}];
+S.players[3].hand = [{rank:'9',suit:'♣'}];
+res = Game.declareMateo();
+console.assert(res.callerWon===false && res.rows[0].points===4+15,'tie at lowest is not a win');
+
+// empty hand scores -10 regardless of who called
+Game.nextRound();
+[0,1,2,3].forEach(i=>Game.setReady(i));
+S.phase = 'turn'; S.current = 1;
+S.players[0].hand = [];                     // emptied
+S.players[1].hand = [{rank:'5',suit:'♠'}];  // caller
+S.players[2].hand = [{rank:'6',suit:'♠'}];
+S.players[3].hand = [{rank:'7',suit:'♠'}];
+res = Game.declareMateo();
+console.assert(res.rows[0].points===-10,'empty hand scores -10');
+
+// Q♥ wildcard is worth 0
+Game.nextRound();
+[0,1,2,3].forEach(i=>Game.setReady(i));
+S.phase = 'turn'; S.current = 0;
+S.players[0].hand = [{rank:'Q',suit:'♥'}];   // wildcard → 0
+S.players[1].hand = [{rank:'Q',suit:'♠'}];   // 12
+res = Game.declareMateo();
+console.assert(res.rows[0].points===0 && res.rows[0].sum===0,'Q♥ is worth 0');
+
+// reaching 100 ends the game: highest total loses, lowest wins
+Game.nextRound();
+[0,1,2,3].forEach(i=>Game.setReady(i));
+S.phase = 'turn'; S.current = 2;
+S.players.forEach((p, i) => { p.score = i === 2 ? 95 : 0; });
+S.players[0].hand = [{rank:'A',suit:'♠'}]; // 1 (lowest)
+S.players[1].hand = [{rank:'2',suit:'♠'}];
+S.players[2].hand = [{rank:'K',suit:'♠'}]; // caller fails → 13+15 = 28 → 95+28 = 123
+S.players[3].hand = [{rank:'3',suit:'♠'}];
+res = Game.declareMateo();
+console.assert(S.phase==='gameOver','reaching 100 ends the game');
+console.assert(S.gameOver.loser==='Maria','highest total loses');
+console.assert(S.gameOver.winner==='Jennifer','lowest total wins');
 
 console.log('ALL ENGINE TESTS PASSED');

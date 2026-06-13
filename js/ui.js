@@ -14,7 +14,7 @@ const UI = (() => {
   let lastTurn = -1;
   let started = false;
   let msgOverride = null; // { text, until }
-  let lastStars = 0;          // my stars before round end → coin rewards
+  let lastScoredKey = '';     // guards round/game coin rewards against re-award
   let danceCooldownUntil = 0; // client-side dance button cooldown
 
   const screens = {
@@ -116,6 +116,7 @@ const UI = (() => {
   function render() {
     if (!snap) return;
     applyRoomStyle(snap.style);
+    $('#table').dataset.players = snap.players.length; // drives card scaling
     const inPlay = !['peek', 'roundEnd', 'gameOver'].includes(snap.phase);
 
     document.querySelectorAll('.seat').forEach((s) => (s.style.display = 'none'));
@@ -128,10 +129,12 @@ const UI = (() => {
       seat.querySelector('.player-score').textContent =
         snap.phase === 'peek' && !pl.disconnected
           ? (pl.ready ? '✔ LISTO' : '…')
-          : '★'.repeat(pl.stars) + '☆'.repeat(Math.max(0, 3 - pl.stars));
+          : `${pl.score} pts`;
 
       const hand = seat.querySelector('.hand');
       hand.innerHTML = '';
+      // 5+ cards (penalty) overlap into a fan so they never overflow the circle
+      hand.classList.toggle('crowded', pl.hand.length > 4);
       pl.hand.forEach((card, i) => {
         const el = cardEl(card);
         if (isSelectable(p, i)) {
@@ -253,13 +256,19 @@ const UI = (() => {
     const me = snap.players[myIdx];
     const isCurrent = snap.current === myIdx;
 
+    // Round end: stay on the revealed table as long as you like, then continue
+    if (snap.phase === 'roundEnd' || snap.phase === 'gameOver') {
+      addBtn('CONTINUAR ▶', 'btn-success btn-big', () => { AudioFX.click(); showScores(); });
+      return;
+    }
+
     if (snap.phase === 'peek' && !me.ready) {
       addBtn('✔ CONFIRMAR', 'btn-success', () => { AudioFX.click(); send({ a: 'ready' }); });
     }
     if (snap.phase === 'turn') {
       if (isCurrent) {
         addBtn('🂠 ROBAR', '', () => send({ a: 'draw' }));
-        if (snap.fresh) addBtn('⬆ TOMAR DESCARTE', 'btn-small', () => send({ a: 'takeDiscard' }));
+        if (snap.discardTop) addBtn('⬆ TOMAR DEL CENTRO', 'btn-small', () => send({ a: 'takeDiscard' }));
         addBtn('📣 ¡MATEO!', 'btn-danger', () => send({ a: 'mateo' }));
       }
       if (snap.burnTarget && me.hand.length > 0) {
@@ -296,6 +305,10 @@ const UI = (() => {
       return;
     }
     msgOverride = null;
+    if (snap.phase === 'roundEnd' || snap.phase === 'gameOver') {
+      $('#message-bar').textContent = '¡Fin de ronda! Mira las cartas reveladas y pulsa CONTINUAR ▶';
+      return;
+    }
     const isCurrent = snap.current === myIdx;
     const curName = snap.players[snap.current].name.toUpperCase();
     const me = snap.players[myIdx];
@@ -473,23 +486,19 @@ const UI = (() => {
     snap = s;
     myIdx = s.you;
 
-    // Track my stars during play so round-end can detect a gain (→ coins)
-    if (!['roundEnd', 'gameOver'].includes(s.phase) && myIdx >= 0 && s.players[myIdx]) {
-      lastStars = s.players[myIdx].stars;
-    }
-
     const phaseChanged = s.phase !== lastPhase;
     if (phaseChanged) {
       lastPhase = s.phase;
       if (s.phase !== 'drawn') swapMode = false;
     }
 
-    // Round end: reveal everything on the table, then show scores
+    // Round end: reveal everything on the table and wait for the player to
+    // press CONTINUAR (no auto-advance) so they can study the cards as long
+    // as they want before seeing the score screen.
     if ((s.phase === 'roundEnd' || s.phase === 'gameOver') && phaseChanged) {
       closeDrawnModal();
       show('game');
       render();
-      setTimeout(showScores, 3400);
       return;
     }
     if (s.phase === 'roundEnd' || s.phase === 'gameOver') return;
@@ -555,19 +564,16 @@ const UI = (() => {
         shakeSeat(ev.player);
         flash(`❌ ${name(ev.player)} falló el trío (${cardLabel(ev.cards[0])}, ${cardLabel(ev.cards[1])}) → +1 carta`);
         break;
-      case 'mateoFail':
-        AudioFX.lose();
-        shakeSeat(ev.player);
-        flash(`📣 ¡${name(ev.player)} CANTÓ MATEO Y FALLÓ! Pierde 1 estrella · la ronda sigue (cartas: ${ev.counts.join('-')})`, 4000);
-        break;
-      case 'mateoTie':
-        AudioFX.burnFail();
-        flash(`📣 ${name(ev.player)} cantó MATEO pero hay empate: nadie gana estrella (cartas: ${ev.counts.join('-')})`, 4000);
+      case 'mateoCall':
+        AudioFX.mateo();
+        flash(ev.won
+          ? `📣 ¡${name(ev.player)} CANTÓ MATEO Y ACERTÓ!`
+          : `📣 ${name(ev.player)} cantó MATEO… ¡y falló! +15 de penitencia`, 3400);
         break;
       case 'roundEnd':
-        if (ev.reason === 'mateo') AudioFX.mateo();
-        else AudioFX.win();
-        flash('¡FIN DE RONDA! Revelando cartas…', 3400);
+        // 'mateo' already played its sting via the mateoCall event
+        if (ev.reason !== 'mateo') AudioFX.win();
+        flash('¡FIN DE RONDA! Mira las cartas y pulsa CONTINUAR ▶', 5000);
         break;
       case 'left':
         flash(`⚠ ${name(ev.player)} SE DESCONECTÓ — puede volver a entrar con su nombre y el código`, 6000);
@@ -620,24 +626,36 @@ const UI = (() => {
     if (!result) return;
     const over = snap.phase === 'gameOver';
 
-    $('#score-title').textContent = over ? '🏆 ¡VICTORIA! 🏆' : `FIN DE RONDA ${snap.round}`;
+    $('#score-title').textContent = over ? '🏁 ¡FIN DEL JUEGO! 🏁' : `FIN DE RONDA ${snap.round}`;
     let sub = '';
     if (result.reason === 'mateo') {
       const caller = snap.players[result.caller].name.toUpperCase();
-      sub = `📣 ${caller} ganó la ronda y obtiene ⭐ (primera en llegar a 3 gana)`;
+      sub = result.callerWon
+        ? `📣 ${caller} cantó ¡MATEO! y acertó: 0 puntos`
+        : `📣 ${caller} cantó ¡MATEO! y falló: suma sus cartas +15 de penitencia`;
+    } else if (result.reason === 'empty') {
+      sub = 'Alguien se deshizo de todas sus cartas: −10 puntos';
     } else if (result.reason === 'deck') {
-      sub = 'Se agotó el mazo: nadie gana estrella esta ronda';
+      sub = 'Se agotó el mazo: cada quien suma el valor de sus cartas';
     }
-    if (over) sub = `🏆 ${snap.gameOver.winner.toUpperCase()} LLEGÓ A 3 ESTRELLAS Y GANA EL JUEGO`;
+    if (over) {
+      sub = `🏆 GANA ${snap.gameOver.winner.toUpperCase()} · 💀 ${snap.gameOver.loser.toUpperCase()} llegó a 100 y pierde`;
+    }
     $('#score-subtitle').textContent = sub;
 
     const tbody = $('#score-table tbody');
     tbody.innerHTML = '';
-    result.rows.forEach((row) => {
+    // Lowest total first: the leader is whoever is furthest from losing
+    const rows = result.rows
+      .map((r, i) => ({ ...r, idx: i }))
+      .sort((a, b) => a.total - b.total);
+    rows.forEach((row) => {
       const tr = document.createElement('tr');
       if (over && row.name === snap.gameOver.winner) tr.className = 'winner';
-      const stars = '★'.repeat(row.stars) + '☆'.repeat(Math.max(0, 3 - row.stars));
-      tr.innerHTML = `<td>${row.name.toUpperCase()}</td><td>${stars}</td>`;
+      else if (over && row.name === snap.gameOver.loser) tr.className = 'loser';
+      const delta = row.points > 0 ? `+${row.points}` : `${row.points}`;
+      tr.innerHTML =
+        `<td>${row.name.toUpperCase()}</td><td>${delta}</td><td>${row.total}</td>`;
       tbody.appendChild(tr);
     });
 
@@ -646,15 +664,21 @@ const UI = (() => {
     $('#score-hint').textContent = amHost() ? '' : over
       ? 'el anfitrión puede iniciar otro juego'
       : 'esperando a que el anfitrión inicie la siguiente ronda…';
-    if (over) AudioFX.lose();
+    if (over) AudioFX.lose(); else AudioFX.win();
     show('score');
 
-    // Coin rewards: +3 per star earned this round, +10 for winning the game
-    const myStars = snap.players[myIdx] ? snap.players[myIdx].stars : 0;
-    if (myStars > lastStars) Economy.earn(3 * (myStars - lastStars), 'ronda ganada');
-    lastStars = myStars;
-    if (over && snap.gameOver.winner === snap.players[myIdx].name) {
-      Economy.earn(10, '¡PARTIDA GANADA!');
+    // Coin rewards (once per round): +3 for a good round (0 or negative
+    // points), +10 for winning the whole game. Guarded so re-renders don't
+    // re-award.
+    const key = `${snap.round}:${result.reason}`;
+    if (key !== lastScoredKey) {
+      lastScoredKey = key;
+      const myRow = result.rows[myIdx];
+      if (myRow && myRow.points <= 0) Economy.earn(3, 'buena ronda');
+      const me = snap.players[myIdx];
+      if (over && me && snap.gameOver.winner === me.name) {
+        Economy.earn(10, '¡PARTIDA GANADA!');
+      }
     }
   }
 

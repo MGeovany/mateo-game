@@ -7,8 +7,10 @@
   --neon-cyan: #05d9e8;
   --neon-yellow: #f9f002;
   --neon-green: #39ff14;
-  --card-w: 58px;
-  --card-h: 82px;
+  /* Cards scale with the smaller viewport side so they always fit the table
+     circle (which is sized in vmin). Capped at the desktop size. */
+  --card-w: clamp(32px, 8.5vmin, 58px);
+  --card-h: calc(var(--card-w) * 1.414);
   --white: #f4f4f8;
 }
 
@@ -201,6 +203,11 @@ html, body {
   box-shadow: 0 0 30px rgba(255,42,109,0.45), inset 0 0 60px rgba(0,0,0,0.6);
 }
 
+/* More players → side seats appear and the circle gets crowded, so shrink the
+   cards a notch as seats fill up. (--card-h follows --card-w automatically.) */
+#table[data-players="3"] { --card-w: clamp(30px, 7.6vmin, 56px); }
+#table[data-players="4"] { --card-w: clamp(27px, 7vmin, 52px); }
+
 /* Seats around the circle */
 .seat { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .seat[data-pos="bottom"] { bottom: 2%; left: 50%; transform: translateX(-50%); }
@@ -234,8 +241,20 @@ html, body {
 .seat-actions .btn { font-size: 7px; padding: 6px 8px; margin: 0; }
 
 /* ============ CARDS ============ */
-.hand { display: flex; gap: 6px; }
-.seat[data-pos="left"] .hand, .seat[data-pos="right"] .hand { flex-direction: column; }
+.hand { display: flex; gap: clamp(2px, 1.2vmin, 6px); justify-content: center; }
+.seat[data-pos="left"] .hand, .seat[data-pos="right"] .hand { flex-direction: column; align-items: center; }
+
+/* Hands with penalty cards (5+) would overflow the circle, so fan them with a
+   slight overlap instead. Normal hands (≤4) keep their full gap and never touch. */
+.hand.crowded { gap: 0; }
+.hand.crowded .card:not(:first-child) { margin-left: calc(var(--card-w) * -0.34); }
+.seat[data-pos="left"] .hand.crowded .card:not(:first-child),
+.seat[data-pos="right"] .hand.crowded .card:not(:first-child) {
+  margin-left: 0; margin-top: calc(var(--card-h) * -0.42);
+}
+/* In a fanned hand, lift the focused card above its neighbours */
+.hand.crowded .card.selectable:hover,
+.hand.crowded .card.selected { z-index: 5; }
 
 .card {
   width: var(--card-w);
@@ -265,15 +284,16 @@ html, body {
   border: 3px solid #222;
   color: #111;
   transform: rotateY(180deg);
-  font-size: 13px;
+  /* Glyphs scale with the card so small cards don't overflow their face */
+  font-size: calc(var(--card-w) * 0.22);
   gap: 2px;
   box-shadow: 0 3px 0 rgba(0,0,0,0.5);
 }
-.card .face .rank { font-size: 15px; }
-.card .face .suit { font-size: 17px; }
+.card .face .rank { font-size: calc(var(--card-w) * 0.26); }
+.card .face .suit { font-size: calc(var(--card-w) * 0.3); }
 .card .face.red { color: #d11a2a; }
-.card .face .corner { position: absolute; top: 3px; left: 4px; font-size: 8px; line-height: 1.2; }
-.card .face .corner-b { position: absolute; bottom: 3px; right: 4px; font-size: 8px; line-height: 1.2; transform: rotate(180deg); }
+.card .face .corner { position: absolute; top: 3px; left: 4px; font-size: calc(var(--card-w) * 0.15); line-height: 1.2; }
+.card .face .corner-b { position: absolute; bottom: 3px; right: 4px; font-size: calc(var(--card-w) * 0.15); line-height: 1.2; transform: rotate(180deg); }
 
 .card.selectable { cursor: pointer; }
 .card.selectable:hover { transform: translateY(-7px); }
@@ -318,7 +338,9 @@ html, body {
 .table-center {
   position: absolute; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  display: flex; gap: 28px; align-items: center;
+  display: flex; gap: clamp(8px, 4vmin, 28px); align-items: center;
+  justify-content: center; flex-wrap: wrap;
+  max-width: 86%;
 }
 .pile { display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; }
 .pile-label { font-size: 7px; color: var(--neon-cyan); }
@@ -464,10 +486,28 @@ html, body {
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 700px) {
-  :root { --card-w: 42px; --card-h: 60px; }
+  /* card size now comes from the vmin clamp in :root — no fixed override */
   .game-title { font-size: 32px; }
-  .player-label { font-size: 7px; }
+  .player-label { font-size: 7px; padding: 4px 7px; gap: 6px; }
+  .player-score { font-size: 7px; }
   .turn-banner { font-size: 9px; }
+  .seat { gap: 3px; }
+  .seat[data-pos="left"]  { left: 0; }
+  .seat[data-pos="right"] { right: 0; }
+}
+
+/* Narrow phones: give the circle a touch more room and keep labels tight */
+@media (max-width: 430px) {
+  #screen-game .table-circle { width: min(82vmin, 580px); height: min(82vmin, 580px); }
+  .player-label { font-size: 6px; padding: 3px 6px; gap: 5px; }
+  .pile-label { font-size: 6px; }
+}
+
+/* Landscape phones / very short windows: the circle is height-bound, so let it
+   use more of the available height to keep the seats from colliding. */
+@media (max-height: 520px) {
+  #screen-game .table-circle { width: min(88vmin, 580px); height: min(88vmin, 580px); }
+  #table { padding: 2px 0; }
 }
 
 /* ============ ECONOMY: coins, shop, dances, themes ============ */

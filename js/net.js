@@ -4,7 +4,7 @@
  * P2P version, so the UI code is mostly agnostic.
  */
 // Must match the server's PROTOCOL_VERSION (server/index.js)
-const PROTOCOL_VERSION = 5;
+const PROTOCOL_VERSION = 6;
 
 // Backend URL: local server during development; in production, CloudFront
 // (HTTPS/WSS) in front of the EC2 'mateo-server' instance (AWS 851725556357).

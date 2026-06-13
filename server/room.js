@@ -126,7 +126,7 @@ function createRoom(code) {
       style: roomStyle(),
       players: st.players.map((p, idx) => ({
         name: p.name,
-        stars: p.stars,
+        score: p.score,
         ready: p.ready,
         avatar: players[idx] ? players[idx].cosmetics.avatar : '🙂',
         disconnected: players[idx] ? !!players[idx].disconnected : false,
@@ -354,11 +354,10 @@ function createRoom(code) {
         if (!isCurrent || st.phase !== 'turn') break;
         const res = game.declareMateo();
         if (!res) break;
-        if (res.type === 'mateoWin') { roundEndFlow(); break; }
-        // Failed or tied call: the round continues; hands stay hidden so the
-        // memory game survives — everyone learns the card COUNTS only
-        pushState();
-        emitEvent({ name: res.type, player: from, counts: res.counts, stars: res.stars });
+        // Calling Mateo always ends the round — even on a tie. Scoring (win = 0,
+        // failed call = card value + penalty) is settled in the engine.
+        emitEvent({ name: 'mateoCall', player: from, won: res.callerWon });
+        roundEndFlow();
         break;
       }
       case 'nextRound': {

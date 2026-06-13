@@ -7,7 +7,7 @@ const { Server } = require('socket.io');
 const { createRoom } = require('./room');
 
 // Must match the client's PROTOCOL_VERSION (js/net.js)
-const PROTOCOL_VERSION = 5;
+const PROTOCOL_VERSION = 6;
 const PORT = process.env.PORT || 4377;
 const ROOM_TTL_MS = 15 * 60 * 1000; // drop rooms abandoned for 15 min
 
