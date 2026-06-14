@@ -1,8 +1,8 @@
 /* ============ Economy: coins, shop, cosmetics ============
  * Wallet lives in localStorage on this device. Rewards:
- *   +5  compartir el enlace de invitación (una vez por sala)
- *   +3  ganar una ronda (estrella)
- *   +10 ganar la partida
+ *   +10 compartir el enlace de invitación (una vez por sala)
+ *   +10 ganar una ronda (terminar con 0 o menos puntos)
+ *   +30 ganar la partida
  * Cosmetics are sent to the server on create/join so every player
  * sees your avatar; the HOST's table and card styles dress the whole
  * table (es su mesa).
@@ -114,7 +114,7 @@ const Economy = (() => {
   function earnShare(code) {
     if (!code || wallet.sharedRooms.includes(code)) return;
     wallet.sharedRooms.push(code);
-    earn(5, 'por invitar');
+    earn(10, 'por invitar');
   }
 
   function buy(id) {

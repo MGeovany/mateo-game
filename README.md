@@ -55,9 +55,9 @@ Cada dispositivo acumula monedas (guardadas localmente):
 
 | Acción | Recompensa |
 |---|---|
-| Compartir el enlace de invitación (1 vez por sala) | +5 🪙 |
-| Buena ronda (terminas con 0 o menos puntos) | +3 🪙 |
-| Ganar la partida (total más bajo al llegar alguien a 100) | +10 🪙 |
+| Compartir el enlace de invitación (1 vez por sala) | +10 🪙 |
+| Ronda ganada (terminas con 0 o menos puntos) | +10 🪙 |
+| Ganar la partida (total más bajo al llegar alguien a 100) | +30 🪙 |
 
 En la **🛒 TIENDA** (desde el lobby) canjeas monedas por:
 

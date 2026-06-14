@@ -674,10 +674,10 @@ const UI = (() => {
     if (key !== lastScoredKey) {
       lastScoredKey = key;
       const myRow = result.rows[myIdx];
-      if (myRow && myRow.points <= 0) Economy.earn(3, 'buena ronda');
+      if (myRow && myRow.points <= 0) Economy.earn(10, 'ronda ganada');
       const me = snap.players[myIdx];
       if (over && me && snap.gameOver.winner === me.name) {
-        Economy.earn(10, '¡PARTIDA GANADA!');
+        Economy.earn(30, '¡PARTIDA GANADA!');
       }
     }
   }
