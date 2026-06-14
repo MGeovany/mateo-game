@@ -135,6 +135,21 @@ function createGame() {
     state.burnTarget = card;
   }
 
+  // Removing a card (burn/combine) leaves a null hole so the OTHER cards keep
+  // their positions — this is a memory game, so stable slots matter. A hand is
+  // "empty" only when every slot is a hole.
+  function handEmpty(p) {
+    return p.hand.every((c) => !c);
+  }
+
+  // Give a player a card, reusing the first empty slot so existing cards never
+  // shift; only grow the hand if there is no hole to fill.
+  function addToHand(p, card) {
+    const gap = p.hand.indexOf(null);
+    if (gap !== -1) p.hand[gap] = card;
+    else p.hand.push(card);
+  }
+
   /* ---------- turn actions ---------- */
   function drawFromDeck() {
     if (state.phase !== 'turn') return null;
@@ -163,6 +178,7 @@ function createGame() {
     if (state.phase !== 'drawn' && state.phase !== 'swapDiscard') return null;
     const p = currentPlayer();
     const replaced = p.hand[cardIdx];
+    if (!replaced) return null; // can't swap into an empty slot
     p.hand[cardIdx] = state.drawn;
     discardFresh(replaced);
     state.drawn = null;
@@ -236,19 +252,20 @@ function createGame() {
 
   function combinePick(cardIdx) {
     if (state.phase !== 'combine') return null;
+    const p = currentPlayer();
+    if (!p.hand[cardIdx]) return null; // ignore empty slots
     const picks = state.ctx.combinePicks;
     if (picks.includes(cardIdx)) return null;
     picks.push(cardIdx);
     if (picks.length < 2) return { type: 'picked' };
 
-    const p = currentPlayer();
     const [a, b] = picks.map((i) => p.hand[i]);
     const success = a.rank === state.drawn.rank && b.rank === state.drawn.rank;
     const revealed = [...picks];
     if (success) {
-      // All three cards hit the pile; the drawn one stays fresh on top
+      // The two matched cards leave holes; the drawn one stays fresh on top
       const drawn = state.drawn;
-      p.hand = p.hand.filter((_, i) => !picks.includes(i));
+      picks.forEach((i) => { p.hand[i] = null; });
       state.discard.push(a, b);
       discardFresh(drawn);
       state.drawn = null;
@@ -260,7 +277,7 @@ function createGame() {
     state.drawn = null;
     state.ctx.combinePicks = [];
     const penalty = drawCard();
-    if (penalty) p.hand.push(penalty);
+    if (penalty) addToHand(p, penalty);
     return { type: 'combineFail', revealed, cards: [a, b], roundWin: endTurn() };
   }
 
@@ -288,7 +305,7 @@ function createGame() {
    */
   function startBurn(playerIdx) {
     if (state.phase !== 'turn' || !state.burnTarget) return false;
-    if (state.players[playerIdx].hand.length === 0) return false;
+    if (handEmpty(state.players[playerIdx])) return false;
     state.phase = 'burn';
     state.ctx.burner = playerIdx;
     return true;
@@ -302,30 +319,31 @@ function createGame() {
     const target = state.burnTarget;
     delete state.ctx.burner;
     state.phase = 'turn';
+    if (!card) return null; // empty slot — nothing to burn
 
     if (card.rank === target.rank) {
-      p.hand.splice(cardIdx, 1);
+      p.hand[cardIdx] = null; // leave a hole so other cards keep their spots
       // The freshly discarded card still sits on the pile: remove it
       if (discardTop() === target) state.discard.pop();
       if (!state.eliminated.includes(target)) state.eliminated.push(target);
       state.eliminated.push(card);
       state.fresh = null;
       state.burnTarget = null; // burned card is done — no further burns on it
-      if (p.hand.length === 0) {
+      if (handEmpty(p)) {
         return { type: 'burnOk', burner, card, roundWin: endRound('empty', burner) };
       }
       return { type: 'burnOk', burner, card };
     }
     // Failed: keep the card and draw a penalty card
     const penalty = drawCard();
-    if (penalty) p.hand.push(penalty);
+    if (penalty) addToHand(p, penalty);
     return { type: 'burnFail', burner, card };
   }
 
   /* ---------- turn / round flow ---------- */
   function endTurn() {
     const p = currentPlayer();
-    if (p.hand.length === 0) return endRound('empty', state.current);
+    if (handEmpty(p)) return endRound('empty', state.current);
     state.current = (state.current + 1) % state.players.length;
     state.phase = 'turn';
     return null;
@@ -347,7 +365,7 @@ function createGame() {
    * Whoever reaches LOSE_SCORE loses; the lowest total wins. */
   function endRound(reason, caller) {
     const sums = state.players.map((p) =>
-      p.hand.reduce((s, c) => s + cardValue(c), 0));
+      p.hand.reduce((s, c) => s + (c ? cardValue(c) : 0), 0));
     const minSum = Math.min(...sums);
     // The caller only "wins" if they are the sole, strictly-lowest hand
     const lowestCount = sums.filter((s) => s === minSum).length;
@@ -356,7 +374,7 @@ function createGame() {
 
     const rows = state.players.map((p, i) => {
       let points;
-      if (p.hand.length === 0) {
+      if (handEmpty(p)) {
         points = EMPTY_BONUS;
       } else if (reason === 'mateo' && i === caller) {
         points = callerWon ? 0 : sums[i] + MATEO_PENALTY;

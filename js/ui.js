@@ -74,6 +74,7 @@ const UI = (() => {
   /* ---------- what can I click? ---------- */
   function isSelectable(p, i) {
     if (!snap || modalVisible()) return false;
+    if (snap.players[p].hand[i] === 'empty') return false; // burned/combined hole
     const me = snap.you;
     const isCurrent = snap.current === me;
     switch (snap.phase) {
@@ -140,6 +141,14 @@ const UI = (() => {
       // 5+ cards (penalty) overlap into a fan so they never overflow the circle
       hand.classList.toggle('crowded', pl.hand.length > 4);
       pl.hand.forEach((card, i) => {
+        // 'empty' = a burned/combined hole: render a placeholder so the other
+        // cards keep their positions (memory aid)
+        if (card === 'empty') {
+          const gap = document.createElement('div');
+          gap.className = 'card gap';
+          hand.appendChild(gap);
+          return;
+        }
         const el = cardEl(card);
         if (isSelectable(p, i)) {
           el.classList.add('selectable');
@@ -398,7 +407,7 @@ const UI = (() => {
   }
 
   /* ---------- drawn card modal ---------- */
-  function openDrawnModal() {
+  function openDrawnModal(fromDeck) {
     const card = snap.drawn;
     if (!card || card === true) return;
     const slot = $('#drawn-card-slot');
@@ -448,7 +457,34 @@ const UI = (() => {
     });
 
     $('#drawn-modal').classList.remove('hidden');
+    if (fromDeck) animateModalFromDeck();
     render();
+  }
+
+  // Make the drawn-card modal fly in from the deck pile, so the player sees the
+  // card being pulled from the deck and growing into the modal.
+  function animateModalFromDeck() {
+    const deck = $('#deck-pile');
+    const box = $('#drawn-modal .modal-box');
+    if (!deck || !box) return;
+    const d = deck.getBoundingClientRect();
+    const b = box.getBoundingClientRect();
+    if (!b.width) return;
+    const dx = (d.left + d.width / 2) - (b.left + b.width / 2);
+    const dy = (d.top + d.height / 2) - (b.top + b.height / 2);
+    box.style.animation = 'none';
+    box.style.transform = `translate(${dx}px, ${dy}px) scale(0.22)`;
+    box.style.opacity = '0';
+    requestAnimationFrame(() => {
+      box.style.transition = 'transform 0.36s cubic-bezier(0.34, 1.1, 0.5, 1), opacity 0.22s ease-out';
+      box.style.transform = 'none';
+      box.style.opacity = '1';
+    });
+    setTimeout(() => {
+      box.style.transition = '';
+      box.style.transform = '';
+      box.style.animation = '';
+    }, 420);
   }
 
   function closeDrawnModal() {
@@ -513,9 +549,10 @@ const UI = (() => {
       started = true;
     }
 
-    // Drawn modal only for the active player who just drew from the deck
+    // Drawn modal only for the active player who just drew from the deck.
+    // On a fresh draw, the modal flies in from the deck (card pulled out).
     if (s.phase === 'drawn' && s.current === myIdx && s.drawn !== true && !swapMode) {
-      openDrawnModal();
+      openDrawnModal(phaseChanged && !modalVisible());
     } else if (s.phase !== 'drawn') {
       closeDrawnModal();
     }
@@ -560,13 +597,20 @@ const UI = (() => {
         break;
       case 'swap': AudioFX.swap(); break;
       case 'power': AudioFX.power(); flash(`★ ${name(ev.player)} usa el PODER ${ev.rank}`); break;
-      case 'peeked': flash(`👁 ${name(ev.player)} miró una carta de ${name(ev.target)}`); break;
+      case 'peeked':
+        // wiggle the exact card being looked at and announce it in the center
+        tiltCard(ev.target, ev.card);
+        centerAnnounce(ev.own
+          ? `👁 ${name(ev.player)} está mirando una de SUS cartas`
+          : `👁 ${name(ev.player)} está viendo una carta de ${name(ev.target)}`);
+        break;
       case 'blindSwap':
         AudioFX.swap();
-        // two face-down cards cross between the two seats
-        flyCard(seatHand(ev.player), seatHand(ev.target), null);
-        flyCard(seatHand(ev.target), seatHand(ev.player), null);
-        flash(`⇄ ${name(ev.player)} intercambió una carta a ciegas con ${name(ev.target)}`);
+        // power 9 "steal": a hand drags the card out of the victim's hand to
+        // the robber; the card the robber gives back glides quietly the other way
+        flyCard(seatHand(ev.player), seatHand(ev.target), null, 320);
+        flyHandCard(seatHand(ev.target), seatHand(ev.player), null, 580);
+        flash(`✋ ${name(ev.player)} le robó una carta a ${name(ev.target)}`);
         break;
       case 'burnOk':
         AudioFX.burnOk();
@@ -648,6 +692,30 @@ const UI = (() => {
     });
   }
 
+  // Wiggle a single card (the one being peeked by a 7 / 8 power)
+  function tiltCard(p, cardIdx) {
+    requestAnimationFrame(() => {
+      const seat = seatFor(p);
+      if (!seat) return;
+      const el = seat.querySelectorAll('.hand .card')[cardIdx];
+      if (!el) return;
+      el.classList.remove('tilt');
+      void el.offsetWidth; // restart the animation
+      el.classList.add('tilt');
+      setTimeout(() => el.classList.remove('tilt'), 800);
+    });
+  }
+
+  // Big neon message in the middle of the screen (power reveals, etc.)
+  function centerAnnounce(text, ms = 2200) {
+    const el = document.createElement('div');
+    el.className = 'center-announce';
+    el.style.animationDuration = `${ms}ms`;
+    el.textContent = text;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), ms + 60);
+  }
+
   // The hand container of a seat — where a player's cards live
   function seatHand(idx) {
     const seat = seatFor(idx);
@@ -681,6 +749,38 @@ const UI = (() => {
       wrap.style.transform = `translate(${dx}px, ${dy}px) scale(${sc})`;
     });
     setTimeout(() => wrap.remove(), duration + 40);
+  }
+
+  // Like flyCard, but a hand grabs and drags the card across — used for the
+  // power-9 "steal". Slower and more theatrical than a plain glide.
+  function flyHandCard(fromEl, toEl, card, duration = 560) {
+    if (!fromEl || !toEl) return;
+    const a = fromEl.getBoundingClientRect();
+    const b = toEl.getBoundingClientRect();
+    if (!a.width || !b.width) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'fly-wrap';
+    wrap.style.cssText =
+      `position:fixed;left:${a.left}px;top:${a.top}px;` +
+      `width:${a.width}px;height:${a.height}px;z-index:2100;pointer-events:none;`;
+    const c = cardEl(card);
+    c.style.width = '100%';
+    c.style.height = '100%';
+    c.style.transition = 'none';
+    const hand = document.createElement('div');
+    hand.className = 'steal-hand';
+    hand.textContent = '✋';
+    wrap.appendChild(c);
+    wrap.appendChild(hand);
+    document.body.appendChild(wrap);
+    const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+    const dy = (b.top + b.height / 2) - (a.top + a.height / 2);
+    const sc = (b.width / a.width) || 1;
+    requestAnimationFrame(() => {
+      wrap.style.transition = `transform ${duration}ms cubic-bezier(0.45, 0.05, 0.3, 1)`;
+      wrap.style.transform = `translate(${dx}px, ${dy}px) scale(${sc})`;
+    });
+    setTimeout(() => wrap.remove(), duration + 60);
   }
 
   // Small kick on the deck when a card is drawn from it

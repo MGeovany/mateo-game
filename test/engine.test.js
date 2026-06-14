@@ -22,7 +22,9 @@ S.players[1].hand[0] = {rank:'2',suit:'♥'};
 console.assert(Game.startBurn(1),'burn start');
 let res = Game.burnPick(0);
 console.assert(res.type==='burnOk','burn ok');
-console.assert(S.players[1].hand.length===3,'burner hand shrank');
+// burned slot becomes a hole; the other cards keep their positions
+console.assert(S.players[1].hand[0]===null,'burned card leaves an empty slot');
+console.assert(S.players[1].hand.length===4 && S.players[1].hand.filter(Boolean).length===3,'positions kept, 3 cards remain');
 console.assert(S.eliminated.length===2,'both cards eliminated from the game');
 console.assert(S.fresh===null,'fresh discard gone');
 console.assert(Game.takeDiscard()===null,'next player cannot take a burned discard');
@@ -58,7 +60,10 @@ const d3 = Game.drawFromDeck();
 S.players[3].hand[0]={rank:d3.rank,suit:'♠'};
 S.players[3].hand[1]={rank:d3.rank,suit:'♣'};
 Game.startCombine(); Game.combinePick(0); res = Game.combinePick(1);
-console.assert(res.type==='combineOk' && S.players[3].hand.length===2,'combine ok');
+console.assert(res.type==='combineOk','combine ok');
+// the two matched cards leave holes; positions are kept, 2 cards remain
+console.assert(S.players[3].hand[0]===null && S.players[3].hand[1]===null,'combined cards leave empty slots');
+console.assert(S.players[3].hand.filter(Boolean).length===2,'2 cards remain after combine');
 console.assert(S.fresh && S.fresh.rank===d3.rank,'trio leaves the drawn card fresh');
 
 // p0: power 7

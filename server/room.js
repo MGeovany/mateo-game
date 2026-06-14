@@ -131,7 +131,10 @@ function createRoom(code) {
         avatar: players[idx] ? players[idx].cosmetics.avatar : '🙂',
         disconnected: players[idx] ? !!players[idx].disconnected : false,
         peeked: viewer === idx ? p.peeked.size : undefined,
-        hand: p.hand.map((card, i) => (isVisible(viewer, idx, i) ? card : null)),
+        // 'empty' = a burned/combined hole (render a gap); null = a face-down
+        // card; an object = a card whose face this viewer is allowed to see
+        hand: p.hand.map((card, i) =>
+          (card === null ? 'empty' : (isVisible(viewer, idx, i) ? card : null))),
       })),
       deckCount: st.deck.length,
       discardTop: game.discardTop(),
@@ -284,7 +287,10 @@ function createRoom(code) {
         // peekOwn / peekOther: only the power user sees the card
         addReveal(res.player, res.card, [actor], 2500);
         emitEvent({ name: 'flip' }, actor);
-        emitEvent({ name: 'peeked', player: actor, target: res.player });
+        emitEvent({
+          name: 'peeked', player: actor, target: res.player,
+          card: res.card, own: res.type === 'peekOwn',
+        });
         maybeRoundEnd(res.roundWin);
         break;
       }

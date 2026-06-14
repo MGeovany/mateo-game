@@ -270,6 +270,13 @@ html, body {
 }
 .card.flipped { transform: rotateY(180deg); }
 
+/* Empty slot left where a card was burned/combined — keeps positions stable */
+.card.gap {
+  border: 2px dashed rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: none;
+}
+
 .card .face, .card .back {
   position: absolute; inset: 0;
   border-radius: 5px;
@@ -320,6 +327,47 @@ html, body {
 @keyframes deal-in {
   from { transform: translate(0, -180px) rotate(540deg) scale(0.3); opacity: 0; }
   to { transform: none; opacity: 1; }
+}
+
+/* tilt: wiggle the card being peeked (power 7 / 8). A flipped (revealed) card
+   keeps its rotateY so the face stays visible while it wiggles. */
+.card.tilt { animation: card-tilt 0.7s ease-in-out; z-index: 6; }
+.card.flipped.tilt { animation: card-tilt-flip 0.7s ease-in-out; }
+@keyframes card-tilt {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-12deg) scale(1.12); }
+  55% { transform: rotate(9deg) scale(1.12); }
+  80% { transform: rotate(-4deg) scale(1.06); }
+}
+@keyframes card-tilt-flip {
+  0%, 100% { transform: rotateY(180deg) rotate(0); }
+  25% { transform: rotateY(180deg) rotate(-12deg) scale(1.12); }
+  55% { transform: rotateY(180deg) rotate(9deg) scale(1.12); }
+  80% { transform: rotateY(180deg) rotate(-4deg) scale(1.06); }
+}
+
+.center-announce {
+  position: fixed; top: 42%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1600;
+  font-size: clamp(10px, 3.4vmin, 15px);
+  line-height: 1.6;
+  text-align: center;
+  color: var(--neon-cyan);
+  background: rgba(0, 0, 0, 0.88);
+  border: 3px solid var(--neon-cyan);
+  box-shadow: 0 0 22px rgba(5, 217, 232, 0.6);
+  padding: 16px 22px;
+  max-width: 80vw;
+  pointer-events: none;
+  animation: center-announce 2.2s ease-out forwards;
+}
+@keyframes center-announce {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  12% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
+  20% { transform: translate(-50%, -50%) scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
 }
 
 .card.shake { animation: shake 0.45s; }
@@ -397,6 +445,21 @@ html, body {
   0% { transform: translateY(0) scale(1); }
   40% { transform: translateY(-10px) scale(1.07); }
   100% { transform: translateY(0) scale(1); }
+}
+
+/* a hand that grabs and drags a stolen card (power 9) */
+.steal-hand {
+  position: absolute;
+  left: 50%; top: -38%;
+  transform: translateX(-50%) rotate(-12deg);
+  font-size: clamp(22px, 7vmin, 40px);
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,0.6));
+  animation: steal-grab 0.45s ease-in-out;
+}
+@keyframes steal-grab {
+  0% { transform: translateX(-50%) rotate(-12deg) scale(0.4); opacity: 0; }
+  35% { transform: translateX(-50%) rotate(-4deg) scale(1.25); opacity: 1; }
+  100% { transform: translateX(-50%) rotate(-12deg) scale(1); opacity: 1; }
 }
 
 /* ============ BANNERS & BARS ============ */
