@@ -110,11 +110,8 @@ const UI = (() => {
     if (!style) return;
     const table = $('#table');
     table.dataset.theme = style.table || 'table-default';
+    // The host's deck dresses the central piles (deck + discard)
     table.dataset.deck = style.cards || 'cards-default';
-    // Your own seat (always rendered at the bottom) uses YOUR equipped deck,
-    // so the card back you bought shows on your cards even if you're not host.
-    const mySeat = $('.seat[data-pos="bottom"]');
-    if (mySeat) mySeat.dataset.deck = Economy.cosmetics().cards || 'cards-default';
   }
 
   /* ---------- render ---------- */
@@ -128,6 +125,8 @@ const UI = (() => {
     snap.players.forEach((pl, p) => {
       const seat = seatFor(p);
       seat.style.display = '';
+      // Each player's own equipped deck shows on THEIR cards for everyone
+      seat.dataset.deck = pl.cards || 'cards-default';
       seat.classList.toggle('active-turn', p === snap.current && inPlay);
       seat.querySelector('.player-name').textContent =
         (p === myIdx ? '➤ ' : '') + (pl.avatar || '') + ' ' + pl.name.toUpperCase() + (pl.disconnected ? ' ⛔' : '');
@@ -845,10 +844,10 @@ const UI = (() => {
     if (key !== lastScoredKey) {
       lastScoredKey = key;
       const myRow = result.rows[myIdx];
-      if (myRow && myRow.points <= 0) Economy.earn(10, 'ronda ganada');
+      if (myRow && myRow.points <= 0) Economy.earn(20, 'ronda ganada');
       const me = snap.players[myIdx];
       if (over && me && snap.gameOver.winner === me.name) {
-        Economy.earn(30, '¡PARTIDA GANADA!');
+        Economy.earn(50, '¡PARTIDA GANADA!');
       }
     }
   }

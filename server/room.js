@@ -129,6 +129,7 @@ function createRoom(code) {
         score: p.score,
         ready: p.ready,
         avatar: players[idx] ? players[idx].cosmetics.avatar : '🙂',
+        cards: players[idx] ? players[idx].cosmetics.cards : 'cards-default',
         disconnected: players[idx] ? !!players[idx].disconnected : false,
         peeked: viewer === idx ? p.peeked.size : undefined,
         // 'empty' = a burned/combined hole (render a gap); null = a face-down
