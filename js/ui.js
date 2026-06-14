@@ -534,19 +534,40 @@ const UI = (() => {
         break;
       case 'flip': AudioFX.flip(); break;
       case 'start': AudioFX.win(); flash('¡QUE COMIENCE EL JUEGO!'); break;
-      case 'draw': AudioFX.draw(); break;
-      case 'tookDiscard': AudioFX.draw(); flash(`${name(ev.player)} tomó el descarte`); break;
-      case 'discard': AudioFX.discard(); slamDiscard(); break;
+      case 'draw':
+        AudioFX.draw();
+        deckPop();
+        // The drawer sees the card pop up in their modal; everyone else sees a
+        // face-down card glide from the deck to the "ROBADA" slot.
+        if (ev.player !== myIdx) flyCard($('#deck-pile'), $('#drawn-float'), null);
+        break;
+      case 'tookDiscard': {
+        AudioFX.draw();
+        flash(`${name(ev.player)} tomó el descarte`);
+        const dc = (snap.drawn && snap.drawn.rank) ? snap.drawn : null;
+        flyCard($('#discard-pile'), $('#drawn-float'), dc);
+        break;
+      }
+      case 'discard':
+        AudioFX.discard();
+        // card travels from the player's hand to the discard pile
+        flyCard(seatHand(ev.player), $('#discard-pile'), snap.discardTop, 400);
+        slamDiscard();
+        break;
       case 'swap': AudioFX.swap(); break;
       case 'power': AudioFX.power(); flash(`★ ${name(ev.player)} usa el PODER ${ev.rank}`); break;
       case 'peeked': flash(`👁 ${name(ev.player)} miró una carta de ${name(ev.target)}`); break;
       case 'blindSwap':
         AudioFX.swap();
+        // two face-down cards cross between the two seats
+        flyCard(seatHand(ev.player), seatHand(ev.target), null);
+        flyCard(seatHand(ev.target), seatHand(ev.player), null);
         flash(`⇄ ${name(ev.player)} intercambió una carta a ciegas con ${name(ev.target)}`);
         break;
       case 'burnOk':
         AudioFX.burnOk();
-        slamDiscard();
+        // burned card flies from the burner's hand to the burned pile
+        flyCard(seatHand(ev.player), $('#burned-pile') || $('#discard-pile'), ev.card, 400);
         flash(`🔥 ¡${name(ev.player)} QUEMÓ ${cardLabel(ev.card)}!`);
         break;
       case 'burnFail':
@@ -556,6 +577,9 @@ const UI = (() => {
         break;
       case 'combineOk':
         AudioFX.combine();
+        // the matched cards fly from the hand to the discard pile
+        (ev.cards || []).forEach((cd, i) =>
+          flyCard(seatHand(ev.player), $('#discard-pile'), cd, 420 + i * 70));
         slamDiscard();
         flash(`♦♦♦ ¡TRÍO DE ${ev.cards[0].rank}! ${name(ev.player)} descartó 3 cartas`);
         break;
@@ -618,6 +642,49 @@ const UI = (() => {
       const seat = seatFor(p);
       if (seat) seat.querySelectorAll('.card').forEach((c) => c.classList.add('shake'));
     });
+  }
+
+  // The hand container of a seat — where a player's cards live
+  function seatHand(idx) {
+    const seat = seatFor(idx);
+    return seat ? (seat.querySelector('.hand') || seat) : null;
+  }
+
+  // Animate a temporary card gliding from one element to another. card=null
+  // flies face down; a card object flies face up. Reuses cardEl so the moving
+  // card matches the table. Safe to call with missing endpoints (no-op).
+  function flyCard(fromEl, toEl, card, duration = 430) {
+    if (!fromEl || !toEl) return;
+    const a = fromEl.getBoundingClientRect();
+    const b = toEl.getBoundingClientRect();
+    if (!a.width || !b.width) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'fly-wrap';
+    wrap.style.cssText =
+      `position:fixed;left:${a.left}px;top:${a.top}px;` +
+      `width:${a.width}px;height:${a.height}px;z-index:2000;pointer-events:none;`;
+    const c = cardEl(card);
+    c.style.width = '100%';
+    c.style.height = '100%';
+    c.style.transition = 'none';
+    wrap.appendChild(c);
+    document.body.appendChild(wrap);
+    const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+    const dy = (b.top + b.height / 2) - (a.top + a.height / 2);
+    const sc = (b.width / a.width) || 1;
+    requestAnimationFrame(() => {
+      wrap.style.transition = `transform ${duration}ms cubic-bezier(0.34, 1.05, 0.5, 1)`;
+      wrap.style.transform = `translate(${dx}px, ${dy}px) scale(${sc})`;
+    });
+    setTimeout(() => wrap.remove(), duration + 60);
+  }
+
+  // Small kick on the deck when a card is drawn from it
+  function deckPop() {
+    const back = $('#deck-pile .card-back');
+    if (!back) return;
+    back.classList.add('draw-pop');
+    setTimeout(() => back.classList.remove('draw-pop'), 360);
   }
 
   /* ---------- score screen ---------- */

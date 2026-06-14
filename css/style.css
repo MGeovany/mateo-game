@@ -386,6 +386,17 @@ html, body {
   to { transform: scale(1) rotate(0); }
 }
 
+/* ---- card movement: a temporary card flies between two spots ---- */
+.fly-wrap { will-change: transform; }
+.fly-wrap .card { box-shadow: 0 12px 24px rgba(0,0,0,0.6); }
+/* deck gives a little kick when a card is drawn from it */
+#deck-pile .card-back.draw-pop { animation: draw-pop 0.34s ease-out; }
+@keyframes draw-pop {
+  0% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(-10px) scale(1.07); }
+  100% { transform: translateY(0) scale(1); }
+}
+
 /* ============ BANNERS & BARS ============ */
 .turn-banner {
   position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
