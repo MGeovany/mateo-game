@@ -12,6 +12,9 @@
   --card-w: clamp(32px, 8.5vmin, 58px);
   --card-h: calc(var(--card-w) * 1.414);
   --white: #f4f4f8;
+  /* Card-back pattern. Overridden per deck theme on #table (host's deck) and
+     on your own seat (your equipped deck). */
+  --deck-bg: repeating-conic-gradient(#1c4fd1 0% 25%, #2e6bff 0% 50%) 0 0 / 12px 12px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -274,8 +277,7 @@ html, body {
   display: flex; align-items: center; justify-content: center; flex-direction: column;
 }
 .card .back {
-  background:
-    repeating-conic-gradient(#1c4fd1 0% 25%, #2e6bff 0% 50%) 0 0 / 12px 12px;
+  background: var(--deck-bg);
   border: 3px solid var(--white);
   box-shadow: 0 3px 0 rgba(0,0,0,0.5);
 }
@@ -355,7 +357,7 @@ html, body {
 #deck-pile .card-back {
   width: var(--card-w); height: var(--card-h);
   border-radius: 5px;
-  background: repeating-conic-gradient(#1c4fd1 0% 25%, #2e6bff 0% 50%) 0 0 / 12px 12px;
+  background: var(--deck-bg);
   border: 3px solid var(--white);
   box-shadow: 2px 2px 0 #0a1f55, 4px 4px 0 #0a1f55, 0 0 12px rgba(46,107,255,0.5);
   cursor: pointer;
@@ -390,7 +392,7 @@ html, body {
 .fly-wrap { will-change: transform; }
 .fly-wrap .card { box-shadow: 0 12px 24px rgba(0,0,0,0.6); }
 /* deck gives a little kick when a card is drawn from it */
-#deck-pile .card-back.draw-pop { animation: draw-pop 0.34s ease-out; }
+#deck-pile .card-back.draw-pop { animation: draw-pop 0.24s ease-out; }
 @keyframes draw-pop {
   0% { transform: translateY(0) scale(1); }
   40% { transform: translateY(-10px) scale(1.07); }
@@ -658,20 +660,21 @@ html, body {
   box-shadow: 0 0 30px rgba(255,26,26,0.5), inset 0 0 60px rgba(0,0,0,0.65);
 }
 
-/* card back themes (host's deck) */
-#table[data-deck="cards-red"] .card .back,
-#table[data-deck="cards-red"] #deck-pile .card-back {
-  background: repeating-conic-gradient(#a31621 0% 25%, #e6394a 0% 50%) 0 0 / 12px 12px;
+/* Card-back themes via --deck-bg. The host's deck (#table) dresses the table
+   and piles; your own seat overrides it with YOUR equipped deck, so the back
+   you bought always shows on your own cards. */
+#table[data-deck="cards-default"], .seat[data-deck="cards-default"] {
+  --deck-bg: repeating-conic-gradient(#1c4fd1 0% 25%, #2e6bff 0% 50%) 0 0 / 12px 12px;
 }
-#table[data-deck="cards-gold"] .card .back,
-#table[data-deck="cards-gold"] #deck-pile .card-back {
-  background: repeating-conic-gradient(#8a6d00 0% 25%, #d4af37 0% 50%) 0 0 / 12px 12px;
+#table[data-deck="cards-red"], .seat[data-deck="cards-red"] {
+  --deck-bg: repeating-conic-gradient(#a31621 0% 25%, #e6394a 0% 50%) 0 0 / 12px 12px;
 }
-#table[data-deck="cards-matrix"] .card .back,
-#table[data-deck="cards-matrix"] #deck-pile .card-back {
-  background: repeating-conic-gradient(#063d10 0% 25%, #0fa830 0% 50%) 0 0 / 12px 12px;
+#table[data-deck="cards-gold"], .seat[data-deck="cards-gold"] {
+  --deck-bg: repeating-conic-gradient(#8a6d00 0% 25%, #d4af37 0% 50%) 0 0 / 12px 12px;
 }
-#table[data-deck="cards-purple"] .card .back,
-#table[data-deck="cards-purple"] #deck-pile .card-back {
-  background: repeating-conic-gradient(#4b1a78 0% 25%, #8a3ddb 0% 50%) 0 0 / 12px 12px;
+#table[data-deck="cards-matrix"], .seat[data-deck="cards-matrix"] {
+  --deck-bg: repeating-conic-gradient(#063d10 0% 25%, #0fa830 0% 50%) 0 0 / 12px 12px;
+}
+#table[data-deck="cards-purple"], .seat[data-deck="cards-purple"] {
+  --deck-bg: repeating-conic-gradient(#4b1a78 0% 25%, #8a3ddb 0% 50%) 0 0 / 12px 12px;
 }

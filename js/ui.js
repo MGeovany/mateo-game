@@ -110,6 +110,10 @@ const UI = (() => {
     const table = $('#table');
     table.dataset.theme = style.table || 'table-default';
     table.dataset.deck = style.cards || 'cards-default';
+    // Your own seat (always rendered at the bottom) uses YOUR equipped deck,
+    // so the card back you bought shows on your cards even if you're not host.
+    const mySeat = $('.seat[data-pos="bottom"]');
+    if (mySeat) mySeat.dataset.deck = Economy.cosmetics().cards || 'cards-default';
   }
 
   /* ---------- render ---------- */
@@ -551,7 +555,7 @@ const UI = (() => {
       case 'discard':
         AudioFX.discard();
         // card travels from the player's hand to the discard pile
-        flyCard(seatHand(ev.player), $('#discard-pile'), snap.discardTop, 400);
+        flyCard(seatHand(ev.player), $('#discard-pile'), snap.discardTop, 240);
         slamDiscard();
         break;
       case 'swap': AudioFX.swap(); break;
@@ -567,7 +571,7 @@ const UI = (() => {
       case 'burnOk':
         AudioFX.burnOk();
         // burned card flies from the burner's hand to the burned pile
-        flyCard(seatHand(ev.player), $('#burned-pile') || $('#discard-pile'), ev.card, 400);
+        flyCard(seatHand(ev.player), $('#burned-pile') || $('#discard-pile'), ev.card, 260);
         flash(`🔥 ¡${name(ev.player)} QUEMÓ ${cardLabel(ev.card)}!`);
         break;
       case 'burnFail':
@@ -579,7 +583,7 @@ const UI = (() => {
         AudioFX.combine();
         // the matched cards fly from the hand to the discard pile
         (ev.cards || []).forEach((cd, i) =>
-          flyCard(seatHand(ev.player), $('#discard-pile'), cd, 420 + i * 70));
+          flyCard(seatHand(ev.player), $('#discard-pile'), cd, 260 + i * 45));
         slamDiscard();
         flash(`♦♦♦ ¡TRÍO DE ${ev.cards[0].rank}! ${name(ev.player)} descartó 3 cartas`);
         break;
@@ -653,7 +657,7 @@ const UI = (() => {
   // Animate a temporary card gliding from one element to another. card=null
   // flies face down; a card object flies face up. Reuses cardEl so the moving
   // card matches the table. Safe to call with missing endpoints (no-op).
-  function flyCard(fromEl, toEl, card, duration = 430) {
+  function flyCard(fromEl, toEl, card, duration = 260) {
     if (!fromEl || !toEl) return;
     const a = fromEl.getBoundingClientRect();
     const b = toEl.getBoundingClientRect();
@@ -673,10 +677,10 @@ const UI = (() => {
     const dy = (b.top + b.height / 2) - (a.top + a.height / 2);
     const sc = (b.width / a.width) || 1;
     requestAnimationFrame(() => {
-      wrap.style.transition = `transform ${duration}ms cubic-bezier(0.34, 1.05, 0.5, 1)`;
+      wrap.style.transition = `transform ${duration}ms cubic-bezier(0.25, 0.9, 0.35, 1)`;
       wrap.style.transform = `translate(${dx}px, ${dy}px) scale(${sc})`;
     });
-    setTimeout(() => wrap.remove(), duration + 60);
+    setTimeout(() => wrap.remove(), duration + 40);
   }
 
   // Small kick on the deck when a card is drawn from it
@@ -684,7 +688,7 @@ const UI = (() => {
     const back = $('#deck-pile .card-back');
     if (!back) return;
     back.classList.add('draw-pop');
-    setTimeout(() => back.classList.remove('draw-pop'), 360);
+    setTimeout(() => back.classList.remove('draw-pop'), 240);
   }
 
   /* ---------- score screen ---------- */
