@@ -258,6 +258,15 @@ html, body {
 .player-name { color: var(--white); }
 .player-score { color: var(--neon-yellow); font-size: 8px; }
 
+/* Top & bottom names sit just OUTSIDE the circle, clear of their cards
+   (side seats already moved to the outer edge via the row layout above). */
+.seat[data-pos="top"] .player-label,
+.seat[data-pos="bottom"] .player-label {
+  position: absolute; left: 50%; transform: translateX(-50%); z-index: 4;
+}
+.seat[data-pos="top"] .player-label    { bottom: 100%; margin-bottom: 8px; }
+.seat[data-pos="bottom"] .player-label { top: 100%;    margin-top: 8px; }
+
 .seat.active-turn .player-label {
   border-color: var(--neon-green);
   color: var(--neon-green);
@@ -680,7 +689,9 @@ html, body {
 .shop-box {
   text-align: center;
   width: min(92vw, 560px);
-  max-height: 92dvh;
+  /* Fixed height (not max-height) so the centered box never resizes when the
+     tab rows or grid height change — keeps the header pinned in place. */
+  height: 92dvh;
   display: flex;
   flex-direction: column;
   animation: rise 0.4s ease-out;

@@ -1,7 +1,7 @@
 {
   "name": "Mateo — Juego de Cartas Multijugador",
   "short_name": "Mateo",
-  "description": "Juego de cartas argentino multijugador online. Memoria, estrategia y agilidad mental con estilo retro arcade.",
+  "description": "Juego de cartas multijugador online. Memoria, estrategia y agilidad mental con estilo retro arcade.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0d0221",

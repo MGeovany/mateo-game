@@ -26,13 +26,13 @@ const DIFFICULTY = {
   dificil: { memProb: 1.00, react: [350, 800],   think: [450, 950],   burnChance: 0.97, mateoMax: 7, mateoAllKnown: true,  mateoMargin: 3, takeMax: 5, powerChance: 0.92, mistake: 0.00, danceChance: 0.18 },
 };
 
-// Computing / math / logic flavored names (no human names), each ≤10 chars
-const NAMES = [
-  'ALGOR', 'LAMBDA', 'BINARIO', 'NODO', 'KERNEL', 'VECTOR', 'MATRIX', 'BIT', 'BYTE', 'HASH',
-  'LOGICA', 'DELTA', 'SIGMA', 'THETA', 'COSENO', 'TANGENTE', 'TENSOR', 'PIXEL', 'CACHE', 'BUCLE',
-  'PRIMO', 'MODULO', 'DAEMON', 'REGEX', 'PIVOTE', 'HEAP', 'STACK', 'BOOLEANO', 'ENTROPIA', 'FRACTAL',
-  'NEXO', 'QUANTUM', 'AXIOMA', 'TEOREMA', 'INTEGRAL', 'ASINTOTA', 'MANTISA', 'NIBBLE', 'SOCKET', 'PUNTERO',
-  'RADIX', 'OCTETO', 'ESCALAR', 'GRAFO', 'ARBOL', 'SUFIJO', 'CIFRADO', 'COMPILA', 'NUCLEO', 'FLOTANTE',
+// Geeky reddit/X-style handles; bots show up as "CPU-<handle>"
+const HANDLES = [
+  'n00b_slayer', 'xX_v0id_Xx', 'l33t_h4x0r', 'sudo_rm_rf', 'based_dev42', 'g1t_gud',
+  'pixel_chad', 'crypto_bro', 'null_ptr', 'seg_fault', 'byte_lord', '420_blazeit',
+  'th3_arch1tect', 'k3rn3l_p4nic', 'dark_matter', 'quantum_chad', 'rm_rf_star', 'st4ck0verflow',
+  'mr_robot', 'doge_coder', 'big_endian', 'cyb3r_punk', 'ed_lord', 'vim_exit',
+  'ratio_d', 'touch_grass', 'gg_ez', 'no_cap_fr', 'sigma_dev', 'gigachad99',
 ];
 
 const AVATARS = ['🤖', '👽', '🐸', '🐱', '🦊', '💀', '🤡', '👾'];
@@ -47,7 +47,7 @@ function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function rint(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
 function chance(p) { return Math.random() < p; }
 
-function randomName() { return rand(NAMES); }
+function randomName() { return 'CPU-' + rand(HANDLES); }
 
 // Everything unlocked: a random full cosmetic set (hat+avatar+face+shoes,
 // plus a dance, table theme and card back).

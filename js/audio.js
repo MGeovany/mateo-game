@@ -143,22 +143,27 @@ const AudioFX = (() => {
         tone({ freq: f, dur: 0.13, type: 'square', vol: 0.12, delay: i * 0.12 }));
     },
 
-    // A real spoken "¡MATEOOO!" shout via the browser's speech synthesis,
-    // layered over the retro sting so there's always SOMETHING even when no
-    // voice is installed.
+    // An excited spoken "¡MATEEEOOO!" scream over a rising whoop, so it sounds
+    // like a thrilled shout. Layered so there's always SOMETHING even with no
+    // installed voice.
     shoutMateo() {
-      this.mateo();
+      // rising, vibrato-ish whoop = the rush of excitement
+      [440, 560, 700, 880, 1100, 1320].forEach((f, i) =>
+        tone({ freq: f, end: f * 1.25, dur: 0.16, type: 'sawtooth', vol: 0.13, delay: i * 0.07 }));
+      noise({ dur: 0.3, freq: 3200, vol: 0.1, delay: 0.42 }); // little cheer hiss
       try {
         const synth = window.speechSynthesis;
         if (!synth) return;
         synth.cancel();
-        const u = new SpeechSynthesisUtterance('¡Mateooo!');
+        const u = new SpeechSynthesisUtterance('¡Mateeeooo!');
+        const v = synth.getVoices().find((x) => /es[-_]/i.test(x.lang));
+        if (v) u.voice = v;
         u.lang = 'es-AR';
-        u.rate = 0.85;
-        u.pitch = 1.4;
+        u.rate = 0.8;   // drawn-out
+        u.pitch = 1.9;  // high and excited
         u.volume = 1;
         synth.speak(u);
-      } catch (e) { /* no speech support — the sting already played */ }
+      } catch (e) { /* no speech support — the whoop already played */ }
     },
 
     // Accelerating snare roll that builds tension before the winner reveal.

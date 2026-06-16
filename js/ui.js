@@ -294,6 +294,7 @@ const UI = (() => {
         addBtn('📣 ¡MATEO!', 'btn-danger', () => {
           AudioFX.click();
           if (confirm('¿Cantar ¡MATEO!? Esto TERMINA la ronda al instante. Solo ganas si tienes la suma más baja.')) {
+            AudioFX.shoutMateo(); // shout the instant you commit, on the click gesture
             send({ a: 'mateo' });
           }
         }, 'M');
@@ -1018,8 +1019,9 @@ const UI = (() => {
     cine.appendChild(stage);
     cine.classList.add('show');
 
-    // 1) The shout
-    AudioFX.shoutMateo();
+    // 1) The shout — the caller already heard it on their click, so only the
+    // other players' clients play it here (everyone still sees the visual).
+    if (r.caller !== myIdx) AudioFX.shoutMateo();
     stage.innerHTML =
       `<div class="cine-emoji cine-pop">📣</div>` +
       `<div class="cine-big">¡${caller}<br>GRITÓ <span class="cine-yell">MATEOOO!</span></div>`;

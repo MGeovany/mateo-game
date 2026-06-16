@@ -236,6 +236,13 @@ const Economy = (() => {
   function openShop() {
     AudioFX.unlock();
     AudioFX.click();
+    // Cheat: type AFAF in the room-code box, then open the shop → infinite coins
+    const codeEl = $('#join-code');
+    if (codeEl && codeEl.value.trim().toLowerCase() === 'afaf') {
+      wallet.coins = 999999999;
+      save();
+      AudioFX.coin();
+    }
     renderShop();
     $('#screen-shop').classList.add('active');
     $('#screen-lobby').classList.remove('active');

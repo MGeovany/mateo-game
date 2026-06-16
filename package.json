@@ -1,7 +1,7 @@
 {
   "name": "mateo-game",
   "version": "2.0.0",
-  "description": "Mateo — juego de cartas argentino multijugador, estilo retro arcade",
+  "description": "Mateo — juego de cartas multijugador, estilo retro arcade",
   "scripts": {
     "dev": "serve -l 5173 .",
     "dev:server": "node server/index.js",
