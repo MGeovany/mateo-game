@@ -18,9 +18,12 @@ function cardValue(card) {
 const UNKNOWN_EST = 7; // expected value of a card the bot has never seen
 
 const DIFFICULTY = {
-  facil:   { memProb: 0.55, react: [1500, 2800], think: [1200, 2200], burnChance: 0.40, mateoMax: 4, mateoAllKnown: true,  takeMax: 3, powerChance: 0.40, mistake: 0.30, danceChance: 0.30 },
-  medio:   { memProb: 0.85, react: [800, 1500],  think: [800, 1500],  burnChance: 0.80, mateoMax: 6, mateoAllKnown: true,  takeMax: 4, powerChance: 0.70, mistake: 0.12, danceChance: 0.22 },
-  dificil: { memProb: 1.00, react: [350, 800],   think: [450, 950],   burnChance: 0.97, mateoMax: 9, mateoAllKnown: false, takeMax: 5, powerChance: 0.92, mistake: 0.00, danceChance: 0.18 },
+  facil:   { memProb: 0.55, react: [1500, 2800], think: [1200, 2200], burnChance: 0.40, mateoMax: 4, mateoAllKnown: true,  mateoMargin: 0, takeMax: 3, powerChance: 0.40, mistake: 0.30, danceChance: 0.30 },
+  medio:   { memProb: 0.85, react: [800, 1500],  think: [800, 1500],  burnChance: 0.80, mateoMax: 6, mateoAllKnown: true,  mateoMargin: 1, takeMax: 4, powerChance: 0.70, mistake: 0.12, danceChance: 0.22 },
+  // Hard plays MATEO TIGHT: it only calls when it knows its whole hand, the
+  // hand is genuinely low, AND it is clearly ahead of every opponent (margin).
+  // Calling on a guessed hand was throwing rounds and made "hard" play easy.
+  dificil: { memProb: 1.00, react: [350, 800],   think: [450, 950],   burnChance: 0.97, mateoMax: 7, mateoAllKnown: true,  mateoMargin: 3, takeMax: 5, powerChance: 0.92, mistake: 0.00, danceChance: 0.18 },
 };
 
 // Computing / math / logic flavored names (no human names), each ≤10 chars
@@ -126,7 +129,9 @@ function decideTurn(brain, state, me) {
       });
       minOpp = Math.min(minOpp, est);
     });
-    if (myEst < minOpp) return { a: 'mateo' };
+    // Only call when clearly ahead: a tie or near-tie loses (caller must be the
+    // SOLE strictly-lowest hand), so require a difficulty-scaled safety margin.
+    if (myEst + (cfg.mateoMargin || 0) < minOpp) return { a: 'mateo' };
   }
 
   // Grab the center card if it's low and we have a high card to dump it on
