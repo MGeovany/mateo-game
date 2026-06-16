@@ -7,7 +7,7 @@ const { Server } = require('socket.io');
 const { createRoom } = require('./room');
 
 // Must match the client's PROTOCOL_VERSION (js/net.js)
-const PROTOCOL_VERSION = 6;
+const PROTOCOL_VERSION = 7;
 const PORT = process.env.PORT || 4377;
 const ROOM_TTL_MS = 15 * 60 * 1000; // drop rooms abandoned for 15 min
 
@@ -42,6 +42,11 @@ io.on('connection', (socket) => {
     const res = room.addPlayer(data.name, socket, data.cosmetics);
     socket.data.code = code;
     socket.data.idx = res.idx;
+    // Solo-vs-CPU: spin up 1–3 bot opponents in this room
+    if (data.bots && typeof data.bots.count === 'number') {
+      const count = Math.max(0, Math.min(3, data.bots.count | 0));
+      if (count) room.addBots(count, data.bots.difficulty);
+    }
     ack({ code });
   });
 

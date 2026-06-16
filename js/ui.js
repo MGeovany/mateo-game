@@ -16,6 +16,7 @@ const UI = (() => {
   let msgOverride = null; // { text, until }
   let lastScoredKey = '';     // guards round/game coin rewards against re-award
   let danceCooldownUntil = 0; // client-side dance button cooldown
+  let soloAutoBegin = false;  // solo-vs-CPU: auto-start once the bots are seated
 
   const screens = {
     lobby: $('#screen-lobby'),
@@ -493,6 +494,12 @@ const UI = (() => {
   /* ---------- server messages: lobby / state / events ---------- */
   function onLobby(msg) {
     myIdx = msg.you;
+    // Solo-vs-CPU: once the bots have been seated (≥2 players), start at once
+    if (soloAutoBegin && amHost() && msg.players.length >= 2) {
+      soloAutoBegin = false;
+      send({ a: 'begin' });
+      return;
+    }
     const list = $('#wait-list');
     list.innerHTML = '';
     msg.players.forEach((name, i) => {
@@ -876,6 +883,59 @@ const UI = (() => {
     });
   });
 
+  /* ---------- vs CPU setup ---------- */
+  let cpuCount = 1;
+  let cpuDiff = 'facil';
+
+  function openCpuModal() {
+    AudioFX.unlock();
+    AudioFX.click();
+    $('#cpu-modal').classList.remove('hidden');
+  }
+
+  function closeCpuModal() {
+    $('#cpu-modal').classList.add('hidden');
+  }
+
+  // Wire the two option rows (single-select toggle buttons)
+  function wireCpuOptions(rowSel, attr, setter) {
+    document.querySelectorAll(`${rowSel} .cpu-opt`).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        AudioFX.click();
+        document.querySelectorAll(`${rowSel} .cpu-opt`).forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        setter(btn.dataset[attr]);
+      });
+    });
+  }
+
+  function startCpuGame() {
+    AudioFX.unlock();
+    AudioFX.click();
+    myName = $('#my-name').value.trim();
+    if (!myName) {
+      closeCpuModal();
+      return lobbyError('escribe tu nombre primero');
+    }
+    lobbyError('');
+    const btn = $('#btn-cpu-start');
+    btn.disabled = true;
+    soloAutoBegin = true; // set BEFORE creating: the lobby event can beat the ack
+    Net.createRoom(myName, { count: cpuCount, difficulty: cpuDiff }, (err, code) => {
+      btn.disabled = false;
+      if (err) {
+        soloAutoBegin = false;
+        closeCpuModal();
+        return lobbyError(err.type === 'version'
+          ? 'tu página está desactualizada: recárgala (Cmd/Ctrl+Shift+R)'
+          : 'sin conexión con el servidor de salas, intenta de nuevo en un momento');
+      }
+      roomCode = code;
+      $('#room-code').textContent = code;
+      closeCpuModal();
+    });
+  }
+
   function tryJoin() {
     AudioFX.unlock();
     AudioFX.click();
@@ -931,6 +991,12 @@ const UI = (() => {
   $('#room-code').addEventListener('click', copyRoomCode);
 
   $('#btn-join').addEventListener('click', tryJoin);
+
+  $('#btn-vs-cpu').addEventListener('click', openCpuModal);
+  $('#btn-cpu-cancel').addEventListener('click', () => { AudioFX.click(); closeCpuModal(); });
+  $('#btn-cpu-start').addEventListener('click', startCpuGame);
+  wireCpuOptions('#cpu-count', 'count', (v) => { cpuCount = parseInt(v, 10) || 1; });
+  wireCpuOptions('#cpu-diff', 'diff', (v) => { cpuDiff = v; });
 
   $('#join-code').addEventListener('input', (e) => {
     const el = e.target;

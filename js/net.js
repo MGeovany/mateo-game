@@ -4,7 +4,7 @@
  * P2P version, so the UI code is mostly agnostic.
  */
 // Must match the server's PROTOCOL_VERSION (server/index.js)
-const PROTOCOL_VERSION = 6;
+const PROTOCOL_VERSION = 7;
 
 // Backend URL: local server during development; in production, CloudFront
 // (HTTPS/WSS) in front of the EC2 'mateo-server' instance (AWS 851725556357).
@@ -47,10 +47,13 @@ const Net = (() => {
     socket.on('disconnect', () => fire('_dropped', { fatal: false }));
   }
 
-  function createRoom(name, cb) {
+  // bots is optional: { count, difficulty } for a solo-vs-CPU game.
+  // Supports the old createRoom(name, cb) signature too.
+  function createRoom(name, bots, cb) {
+    if (typeof bots === 'function') { cb = bots; bots = null; }
     connect();
     const fail = setTimeout(() => cb({ type: 'timeout' }), 12000);
-    socket.emit('create', { name, v: PROTOCOL_VERSION, cosmetics: Economy.cosmetics() }, (res) => {
+    socket.emit('create', { name, v: PROTOCOL_VERSION, cosmetics: Economy.cosmetics(), bots }, (res) => {
       clearTimeout(fail);
       if (!res || res.error) return cb({ type: (res && res.error) || 'unknown' });
       session = { code: res.code, name };

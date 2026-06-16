@@ -39,7 +39,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=12" />
+  <link rel="stylesheet" href="css/style.css?v=13" />
 
   <script type="application/ld+json">
   {
@@ -74,6 +74,7 @@
 
       <div class="lobby-actions">
         <button id="btn-create" class="btn btn-big">+ CREAR PARTIDA</button>
+        <button id="btn-vs-cpu" class="btn btn-big btn-cpu">🤖 JUGAR VS CPU</button>
 
         <p class="join-divider">o únete con un código</p>
 
@@ -194,6 +195,29 @@
     </div>
   </section>
 
+  <!-- VS CPU SETUP MODAL -->
+  <div id="cpu-modal" class="modal hidden">
+    <div class="modal-box cpu-box">
+      <p class="modal-title">🤖 JUGAR VS CPU</p>
+      <p class="cpu-label">¿CUÁNTOS RIVALES?</p>
+      <div id="cpu-count" class="cpu-options">
+        <button class="btn cpu-opt active" data-count="1">1 CPU</button>
+        <button class="btn cpu-opt" data-count="2">2 CPU</button>
+        <button class="btn cpu-opt" data-count="3">3 CPU</button>
+      </div>
+      <p class="cpu-label">DIFICULTAD</p>
+      <div id="cpu-diff" class="cpu-options">
+        <button class="btn cpu-opt active" data-diff="facil">😌 FÁCIL</button>
+        <button class="btn cpu-opt" data-diff="medio">🙂 MEDIO</button>
+        <button class="btn cpu-opt" data-diff="dificil">😈 DIFÍCIL</button>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-cpu-start" class="btn btn-success btn-big">▶ JUGAR</button>
+        <button id="btn-cpu-cancel" class="btn btn-small">CANCELAR</button>
+      </div>
+    </div>
+  </div>
+
   <!-- RULES MODAL -->
   <div id="rules-modal" class="modal hidden">
     <div class="modal-box rules-box">
@@ -216,10 +240,10 @@
   </div>
 
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
-  <script src="js/audio.js?v=12"></script>
-  <script src="js/economy.js?v=12"></script>
-  <script src="js/cards.js?v=12"></script>
-  <script src="js/net.js?v=12"></script>
-  <script src="js/ui.js?v=12"></script>
+  <script src="js/audio.js?v=13"></script>
+  <script src="js/economy.js?v=13"></script>
+  <script src="js/cards.js?v=13"></script>
+  <script src="js/net.js?v=13"></script>
+  <script src="js/ui.js?v=13"></script>
 </body>
 </html>
