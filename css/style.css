@@ -241,10 +241,8 @@ html, body {
 .seat { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .seat[data-pos="bottom"] { bottom: 2%; left: 50%; transform: translateX(-50%); }
 .seat[data-pos="top"]    { top: 2%;    left: 50%; transform: translateX(-50%); flex-direction: column-reverse; }
-/* Side seats lay out as a row so the name sits on the OUTER edge, beside the
-   vertical card column, instead of on top of it (was colliding with cards). */
-.seat[data-pos="left"]   { left: 1%;   top: 50%;  transform: translateY(-50%); flex-direction: row; }
-.seat[data-pos="right"]  { right: 1%;  top: 50%;  transform: translateY(-50%); flex-direction: row-reverse; }
+.seat[data-pos="left"]   { left: 1%;   top: 50%;  transform: translateY(-50%); }
+.seat[data-pos="right"]  { right: 1%;  top: 50%;  transform: translateY(-50%); }
 
 .player-label {
   font-size: 9px;
@@ -258,14 +256,17 @@ html, body {
 .player-name { color: var(--white); }
 .player-score { color: var(--neon-yellow); font-size: 8px; }
 
-/* Top & bottom names sit just OUTSIDE the circle, clear of their cards
-   (side seats already moved to the outer edge via the row layout above). */
+/* All four names sit OUTSIDE the circle (cards stay at the edge), so a long
+   name never covers the cards or the central piles. */
+.seat .player-label { position: absolute; z-index: 4; }
 .seat[data-pos="top"] .player-label,
-.seat[data-pos="bottom"] .player-label {
-  position: absolute; left: 50%; transform: translateX(-50%); z-index: 4;
-}
+.seat[data-pos="bottom"] .player-label { left: 50%; transform: translateX(-50%); }
 .seat[data-pos="top"] .player-label    { bottom: 100%; margin-bottom: 8px; }
 .seat[data-pos="bottom"] .player-label { top: 100%;    margin-top: 8px; }
+.seat[data-pos="left"] .player-label,
+.seat[data-pos="right"] .player-label  { top: 50%; transform: translateY(-50%); }
+.seat[data-pos="left"] .player-label   { right: 100%; margin-right: 8px; }
+.seat[data-pos="right"] .player-label  { left: 100%;  margin-left: 8px; }
 
 .seat.active-turn .player-label {
   border-color: var(--neon-green);
@@ -641,6 +642,12 @@ html, body {
   .seat { gap: 3px; }
   .seat[data-pos="left"]  { left: 0; }
   .seat[data-pos="right"] { right: 0; }
+  /* No room in the side margins on phones: anchor side names to the visible
+     edge and let them wrap so they never run off-screen. */
+  .seat[data-pos="left"] .player-label  { right: auto; left: 0; margin: 0; }
+  .seat[data-pos="right"] .player-label { left: auto; right: 0; margin: 0; }
+  .seat[data-pos="left"] .player-label,
+  .seat[data-pos="right"] .player-label { white-space: normal; max-width: 40vw; }
 }
 
 /* Narrow phones: give the circle a touch more room and keep labels tight */
@@ -755,6 +762,7 @@ html, body {
   image-rendering: pixelated;
 }
 .btn-taunt:active { transform: translateY(3px); }
+.key-hint-corner { position: absolute; top: -7px; right: -7px; margin: 0; font-size: 9px; }
 .btn-taunt.cooling { opacity: 0.4; pointer-events: none; }
 .taunt-menu {
   position: fixed; right: 14px; bottom: 138px; z-index: 71;

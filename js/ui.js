@@ -280,12 +280,12 @@ const UI = (() => {
 
     // Round end: stay on the revealed table as long as you like, then continue
     if (snap.phase === 'roundEnd' || snap.phase === 'gameOver') {
-      addBtn('CONTINUAR ▶', 'btn-success btn-big', () => { AudioFX.click(); showScores(); }, 'C');
+      addBtn('CONTINUAR ▶', 'btn-success btn-big', () => { AudioFX.click(); showScores(); });
       return;
     }
 
     if (snap.phase === 'peek' && !me.ready) {
-      addBtn('✔ CONFIRMAR', 'btn-success', () => { AudioFX.click(); send({ a: 'ready' }); }, 'C');
+      addBtn('✔ CONFIRMAR', 'btn-success', () => { AudioFX.click(); send({ a: 'ready' }); });
     }
     if (snap.phase === 'turn') {
       if (isCurrent) {
@@ -304,13 +304,13 @@ const UI = (() => {
       }
     }
     if (snap.phase === 'burn' && snap.ctx.burner === myIdx) {
-      addBtn('✖ CANCELAR', 'btn-small', () => { AudioFX.click(); send({ a: 'cancel' }); }, 'X');
+      addBtn('✖ CANCELAR', 'btn-small', () => { AudioFX.click(); send({ a: 'cancel' }); });
     }
     if (['combine', 'power7', 'power8', 'power9a', 'power9b'].includes(snap.phase) && isCurrent) {
-      addBtn('✖ CANCELAR', 'btn-small', () => { AudioFX.click(); send({ a: 'cancel' }); }, 'X');
+      addBtn('✖ CANCELAR', 'btn-small', () => { AudioFX.click(); send({ a: 'cancel' }); });
     }
     if (snap.phase === 'drawn' && isCurrent && swapMode) {
-      addBtn('✖ VOLVER', 'btn-small', () => { swapMode = false; openDrawnModal(); }, 'X');
+      addBtn('✖ VOLVER', 'btn-small', () => { swapMode = false; openDrawnModal(); });
     }
     // Taunts live on the always-on floating button (see updateTauntButton)
   }
@@ -521,22 +521,22 @@ const UI = (() => {
       swapMode = true;
       closeDrawnModal();
       render();
-    }, 'C');
+    });
     if (['7', '8', '9'].includes(card.rank)) {
       addBtn(`★ USAR PODER ${card.rank}`, 'btn-warn', () => {
         closeDrawnModal();
         send({ a: 'usePower' });
-      }, 'P');
+      });
     }
     addBtn('♦♦♦ COMBINAR TRÍO', 'btn-small', () => {
       AudioFX.click();
       closeDrawnModal();
       send({ a: 'combineStart' });
-    }, 'B');
+    });
     addBtn('↓ DESCARTAR', 'btn-danger', () => {
       closeDrawnModal();
       send({ a: 'discardDrawn' });
-    }, 'D');
+    });
 
     $('#drawn-modal').classList.remove('hidden');
     if (fromDeck) {
@@ -1288,6 +1288,16 @@ const UI = (() => {
 
   // Always-on taunt button: opens the dance / tomato menu
   $('#btn-taunt').addEventListener('click', toggleTauntMenu);
+  // 'B' = baile: open the dance/taunt menu (desktop keycap in the corner)
+  if (IS_DESKTOP) {
+    const taunt = $('#btn-taunt');
+    taunt.dataset.key = 'b';
+    taunt.title = 'Bailes y tomatazos (B)';
+    const hint = document.createElement('span');
+    hint.className = 'key-hint key-hint-corner';
+    hint.textContent = 'B';
+    taunt.appendChild(hint);
+  }
   // Close the menu when clicking elsewhere
   document.addEventListener('click', (e) => {
     const menu = $('#taunt-menu');
@@ -1329,7 +1339,7 @@ const UI = (() => {
       const drawn = $('#drawn-modal');
       const scope = drawn && !drawn.classList.contains('hidden') ? drawn : document;
       const btn = [...scope.querySelectorAll(`button[data-key="${key}"]`)]
-        .find((b) => b.offsetParent !== null && !b.disabled);
+        .find((b) => b.getClientRects().length > 0 && !b.disabled);
       if (!btn) return;
       e.preventDefault();
       btn.click();
