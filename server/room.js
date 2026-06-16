@@ -440,7 +440,8 @@ function createRoom(code) {
         // peekOwn / peekOther: only the power user sees the card — and remembers it
         if (res.type === 'peekOwn') botNoteOne(actor, actor, res.card, st.players[actor].hand[res.card]);
         else botNoteOne(actor, res.player, res.card, st.players[res.player].hand[res.card]);
-        addReveal(res.player, res.card, [actor], 2500);
+        // Linger longer so the peeker can clearly read and memorize the card
+        addReveal(res.player, res.card, [actor], 4000);
         emitEvent({ name: 'flip' }, actor);
         emitEvent({
           name: 'peeked', player: actor, target: res.player,

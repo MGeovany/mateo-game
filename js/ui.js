@@ -476,7 +476,7 @@ const UI = (() => {
     box.style.transform = `translate(${dx}px, ${dy}px) scale(0.22)`;
     box.style.opacity = '0';
     requestAnimationFrame(() => {
-      box.style.transition = 'transform 0.36s cubic-bezier(0.34, 1.1, 0.5, 1), opacity 0.22s ease-out';
+      box.style.transition = 'transform 0.6s cubic-bezier(0.34, 1.1, 0.5, 1), opacity 0.34s ease-out';
       box.style.transform = 'none';
       box.style.opacity = '1';
     });
@@ -484,7 +484,7 @@ const UI = (() => {
       box.style.transition = '';
       box.style.transform = '';
       box.style.animation = '';
-    }, 420);
+    }, 660);
   }
 
   function closeDrawnModal() {
@@ -585,14 +585,15 @@ const UI = (() => {
         AudioFX.draw();
         deckPop();
         // The drawer sees the card pop up in their modal; everyone else sees a
-        // face-down card glide from the deck to the "LEVANTADA" slot.
-        if (ev.player !== myIdx) flyCard($('#deck-pile'), $('#drawn-float'), null);
+        // face-down card glide from the deck to the "LEVANTADA" slot. Slow and
+        // deliberate so it's clear the card came from the central deck.
+        if (ev.player !== myIdx) flyCard($('#deck-pile'), $('#drawn-float'), null, 700);
         break;
       case 'tookDiscard': {
         AudioFX.draw();
         flash(`${name(ev.player)} tomó el descarte`);
         const dc = (snap.drawn && snap.drawn.rank) ? snap.drawn : null;
-        flyCard($('#discard-pile'), $('#drawn-float'), dc);
+        flyCard($('#discard-pile'), $('#drawn-float'), dc, 700);
         break;
       }
       case 'discard':
@@ -614,9 +615,9 @@ const UI = (() => {
         AudioFX.swap();
         // power 9 "steal": a hand drags the card out of the victim's hand to
         // the robber; the card the robber gives back glides quietly the other way
-        flyCard(seatHand(ev.player), seatHand(ev.target), null, 320);
-        flyHandCard(seatHand(ev.target), seatHand(ev.player), null, 580);
-        flash(`✋ ${name(ev.player)} le robó una carta a ${name(ev.target)}`);
+        flyCard(seatHand(ev.player), seatHand(ev.target), null, 750);
+        flyHandCard(seatHand(ev.target), seatHand(ev.player), null, 1100);
+        flash(`✋ ${name(ev.player)} le robó una carta a ${name(ev.target)}`, 3600);
         break;
       case 'burnOk':
         AudioFX.burnOk();
@@ -728,31 +729,47 @@ const UI = (() => {
     return seat ? (seat.querySelector('.hand') || seat) : null;
   }
 
+  // The true on-table card size. Every card (deck, hand, discard) shares
+  // --card-w/--card-h, so a moving card should always use these dimensions —
+  // never a container's rect (a .hand is several cards wide, which would
+  // stretch the flying card out of shape).
+  function cardSize() {
+    const ref = $('#deck-pile .card-back') || $('.hand .card');
+    if (ref) {
+      const r = ref.getBoundingClientRect();
+      if (r.width) return { w: r.width, h: r.height };
+    }
+    return { w: 48, h: 68 };
+  }
+
+  function centerOf(el) {
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, ok: !!r.width };
+  }
+
   // Animate a temporary card gliding from one element to another. card=null
-  // flies face down; a card object flies face up. Reuses cardEl so the moving
-  // card matches the table. Safe to call with missing endpoints (no-op).
+  // flies face down; a card object flies face up. The card keeps its real
+  // table size the whole way (center → center), so it never deforms.
   function flyCard(fromEl, toEl, card, duration = 260) {
     if (!fromEl || !toEl) return;
-    const a = fromEl.getBoundingClientRect();
-    const b = toEl.getBoundingClientRect();
-    if (!a.width || !b.width) return;
+    const a = centerOf(fromEl);
+    const b = centerOf(toEl);
+    if (!a.ok || !b.ok) return;
+    const { w, h } = cardSize();
     const wrap = document.createElement('div');
     wrap.className = 'fly-wrap';
     wrap.style.cssText =
-      `position:fixed;left:${a.left}px;top:${a.top}px;` +
-      `width:${a.width}px;height:${a.height}px;z-index:2000;pointer-events:none;`;
+      `position:fixed;left:${a.x - w / 2}px;top:${a.y - h / 2}px;` +
+      `width:${w}px;height:${h}px;z-index:2000;pointer-events:none;`;
     const c = cardEl(card);
     c.style.width = '100%';
     c.style.height = '100%';
     c.style.transition = 'none';
     wrap.appendChild(c);
     document.body.appendChild(wrap);
-    const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
-    const dy = (b.top + b.height / 2) - (a.top + a.height / 2);
-    const sc = (b.width / a.width) || 1;
     requestAnimationFrame(() => {
       wrap.style.transition = `transform ${duration}ms cubic-bezier(0.25, 0.9, 0.35, 1)`;
-      wrap.style.transform = `translate(${dx}px, ${dy}px) scale(${sc})`;
+      wrap.style.transform = `translate(${b.x - a.x}px, ${b.y - a.y}px)`;
     });
     setTimeout(() => wrap.remove(), duration + 40);
   }
@@ -761,14 +778,15 @@ const UI = (() => {
   // power-9 "steal". Slower and more theatrical than a plain glide.
   function flyHandCard(fromEl, toEl, card, duration = 560) {
     if (!fromEl || !toEl) return;
-    const a = fromEl.getBoundingClientRect();
-    const b = toEl.getBoundingClientRect();
-    if (!a.width || !b.width) return;
+    const a = centerOf(fromEl);
+    const b = centerOf(toEl);
+    if (!a.ok || !b.ok) return;
+    const { w, h } = cardSize();
     const wrap = document.createElement('div');
     wrap.className = 'fly-wrap';
     wrap.style.cssText =
-      `position:fixed;left:${a.left}px;top:${a.top}px;` +
-      `width:${a.width}px;height:${a.height}px;z-index:2100;pointer-events:none;`;
+      `position:fixed;left:${a.x - w / 2}px;top:${a.y - h / 2}px;` +
+      `width:${w}px;height:${h}px;z-index:2100;pointer-events:none;`;
     const c = cardEl(card);
     c.style.width = '100%';
     c.style.height = '100%';
@@ -779,12 +797,9 @@ const UI = (() => {
     wrap.appendChild(c);
     wrap.appendChild(hand);
     document.body.appendChild(wrap);
-    const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
-    const dy = (b.top + b.height / 2) - (a.top + a.height / 2);
-    const sc = (b.width / a.width) || 1;
     requestAnimationFrame(() => {
       wrap.style.transition = `transform ${duration}ms cubic-bezier(0.45, 0.05, 0.3, 1)`;
-      wrap.style.transform = `translate(${dx}px, ${dy}px) scale(${sc})`;
+      wrap.style.transform = `translate(${b.x - a.x}px, ${b.y - a.y}px)`;
     });
     setTimeout(() => wrap.remove(), duration + 60);
   }
