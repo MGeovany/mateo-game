@@ -5,6 +5,23 @@
 const UI = (() => {
   const $ = (sel) => document.querySelector(sel);
 
+  // Desktop = a real mouse with hover. Phones/tablets (coarse touch pointers)
+  // return false, so keyboard-shortcut hints never show there.
+  const IS_DESKTOP = typeof window.matchMedia === 'function' &&
+    window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+  // Attach a keyboard shortcut to a button: tag it (so the global keydown
+  // handler can find it) and, on desktop only, render a keycap hint.
+  function withKey(btn, key) {
+    if (!key || !IS_DESKTOP) return btn;
+    btn.dataset.key = key.toLowerCase();
+    const hint = document.createElement('span');
+    hint.className = 'key-hint';
+    hint.textContent = key.toUpperCase();
+    btn.appendChild(hint);
+    return btn;
+  }
+
   let snap = null;       // latest state snapshot from the host
   let myIdx = -1;
   let myName = '';
@@ -249,10 +266,11 @@ const UI = (() => {
     bar.innerHTML = '';
     if (!snap || modalVisible()) return;
 
-    const addBtn = (text, cls, fn) => {
+    const addBtn = (text, cls, fn, key) => {
       const b = document.createElement('button');
       b.className = `btn ${cls}`;
       b.textContent = text;
+      withKey(b, key);
       b.addEventListener('click', fn);
       bar.appendChild(b);
     };
@@ -262,36 +280,36 @@ const UI = (() => {
 
     // Round end: stay on the revealed table as long as you like, then continue
     if (snap.phase === 'roundEnd' || snap.phase === 'gameOver') {
-      addBtn('CONTINUAR ▶', 'btn-success btn-big', () => { AudioFX.click(); showScores(); });
+      addBtn('CONTINUAR ▶', 'btn-success btn-big', () => { AudioFX.click(); showScores(); }, 'C');
       return;
     }
 
     if (snap.phase === 'peek' && !me.ready) {
-      addBtn('✔ CONFIRMAR', 'btn-success', () => { AudioFX.click(); send({ a: 'ready' }); });
+      addBtn('✔ CONFIRMAR', 'btn-success', () => { AudioFX.click(); send({ a: 'ready' }); }, 'C');
     }
     if (snap.phase === 'turn') {
       if (isCurrent) {
-        addBtn('🂠 LEVANTAR DEL MAZO', '', () => send({ a: 'draw' }));
-        if (snap.discardTop) addBtn('🤚 TOMAR DEL CENTRO', 'btn-small', () => send({ a: 'takeDiscard' }));
+        addBtn('🂠 LEVANTAR DEL MAZO', '', () => send({ a: 'draw' }), 'L');
+        if (snap.discardTop) addBtn('🤚 TOMAR DEL CENTRO', 'btn-small', () => send({ a: 'takeDiscard' }), 'T');
         addBtn('📣 ¡MATEO!', 'btn-danger', () => {
           AudioFX.click();
           if (confirm('¿Cantar ¡MATEO!? Esto TERMINA la ronda al instante. Solo ganas si tienes la suma más baja.')) {
             send({ a: 'mateo' });
           }
-        });
+        }, 'M');
       }
       if (snap.burnTarget && me.hand.length > 0) {
-        addBtn('🔥 QUEMAR', 'btn-warn', () => { AudioFX.click(); send({ a: 'burnStart' }); });
+        addBtn('🔥 QUEMAR', 'btn-warn', () => { AudioFX.click(); send({ a: 'burnStart' }); }, 'Q');
       }
     }
     if (snap.phase === 'burn' && snap.ctx.burner === myIdx) {
-      addBtn('✖ CANCELAR', 'btn-small', () => { AudioFX.click(); send({ a: 'cancel' }); });
+      addBtn('✖ CANCELAR', 'btn-small', () => { AudioFX.click(); send({ a: 'cancel' }); }, 'X');
     }
     if (['combine', 'power7', 'power8', 'power9a', 'power9b'].includes(snap.phase) && isCurrent) {
-      addBtn('✖ CANCELAR', 'btn-small', () => { AudioFX.click(); send({ a: 'cancel' }); });
+      addBtn('✖ CANCELAR', 'btn-small', () => { AudioFX.click(); send({ a: 'cancel' }); }, 'X');
     }
     if (snap.phase === 'drawn' && isCurrent && swapMode) {
-      addBtn('✖ VOLVER', 'btn-small', () => { swapMode = false; openDrawnModal(); });
+      addBtn('✖ VOLVER', 'btn-small', () => { swapMode = false; openDrawnModal(); }, 'X');
     }
     // Taunts live on the always-on floating button (see updateTauntButton)
   }
@@ -488,10 +506,11 @@ const UI = (() => {
 
     const actions = $('#drawn-actions');
     actions.innerHTML = '';
-    const addBtn = (text, cls, fn) => {
+    const addBtn = (text, cls, fn, key) => {
       const b = document.createElement('button');
       b.className = `btn ${cls}`;
       b.textContent = text;
+      withKey(b, key);
       b.addEventListener('click', fn);
       actions.appendChild(b);
     };
@@ -501,25 +520,35 @@ const UI = (() => {
       swapMode = true;
       closeDrawnModal();
       render();
-    });
+    }, 'C');
     if (['7', '8', '9'].includes(card.rank)) {
       addBtn(`★ USAR PODER ${card.rank}`, 'btn-warn', () => {
         closeDrawnModal();
         send({ a: 'usePower' });
-      });
+      }, 'P');
     }
     addBtn('♦♦♦ COMBINAR TRÍO', 'btn-small', () => {
       AudioFX.click();
       closeDrawnModal();
       send({ a: 'combineStart' });
-    });
+    }, 'B');
     addBtn('↓ DESCARTAR', 'btn-danger', () => {
       closeDrawnModal();
       send({ a: 'discardDrawn' });
-    });
+    }, 'D');
 
     $('#drawn-modal').classList.remove('hidden');
-    if (fromDeck) animateModalFromDeck();
+    if (fromDeck) {
+      animateModalFromDeck();
+    } else {
+      // Normal open (no fly-in): clear any leftover fly-in styles so the CSS
+      // `rise` entrance plays cleanly once.
+      const box = $('#drawn-modal .modal-box');
+      box.style.transition = '';
+      box.style.transform = '';
+      box.style.opacity = '';
+      box.style.animation = '';
+    }
     render();
   }
 
@@ -545,7 +574,9 @@ const UI = (() => {
     setTimeout(() => {
       box.style.transition = '';
       box.style.transform = '';
-      box.style.animation = '';
+      // Keep `rise` suppressed: re-enabling the CSS animation here would replay
+      // the entrance and make the dialog "jump up" a second time.
+      box.style.animation = 'none';
     }, 660);
   }
 
@@ -1209,6 +1240,25 @@ const UI = (() => {
     AudioFX.click();
     send({ a: 'burnStart' });
   });
+
+  // Letter shortcuts for action buttons (desktop only — the hints are only
+  // rendered there). Buttons inside an open dialog take priority over the bar.
+  if (IS_DESKTOP) {
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = document.activeElement;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+      const key = e.key.toLowerCase();
+      if (!/^[a-z]$/.test(key)) return;
+      const drawn = $('#drawn-modal');
+      const scope = drawn && !drawn.classList.contains('hidden') ? drawn : document;
+      const btn = [...scope.querySelectorAll(`button[data-key="${key}"]`)]
+        .find((b) => b.offsetParent !== null && !b.disabled);
+      if (!btn) return;
+      e.preventDefault();
+      btn.click();
+    });
+  }
 
   $('#btn-rules').addEventListener('click', () => {
     AudioFX.click();
