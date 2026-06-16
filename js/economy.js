@@ -48,7 +48,9 @@ const Economy = (() => {
     { id: 'dance-disco', cat: 'dance', emoji: '🕺', name: 'DISCO', price: 40 },
     { id: 'dance-duck', cat: 'dance', emoji: '🦆', name: 'PATITO', price: 35 },
     { id: 'dance-chicken', cat: 'dance', emoji: '🐔', name: 'GALLINA', price: 35 },
+    { id: 'dance-donkey', cat: 'dance', emoji: '🫏', name: 'BURRO', price: 35 },
     { id: 'dance-party', cat: 'dance', emoji: '🪩', name: 'FIESTA', price: 60 },
+    { id: 'dance-tomato', cat: 'dance', emoji: '🍅', name: 'TOMATAZO', price: 45 },
     // table styles (host's table dresses the room)
     { id: 'table-default', cat: 'table', emoji: '🟣', name: 'NEÓN ROSA', price: 0 },
     { id: 'table-ocean', cat: 'table', emoji: '🔵', name: 'OCÉANO', price: 80 },
@@ -151,6 +153,16 @@ const Economy = (() => {
     };
   }
 
+  function owns(id) { return wallet.owned.includes(id); }
+
+  // Every owned dance (with an emoji) for the in-game taunt menu. The tomato is
+  // a targeted throw, so it's surfaced separately by the UI.
+  function ownedDances() {
+    return CATALOG
+      .filter((x) => x.cat === 'dance' && x.emoji && x.id !== 'dance-tomato' && wallet.owned.includes(x.id))
+      .map((x) => ({ id: x.id, emoji: x.emoji, name: x.name }));
+  }
+
   /* ---------- coin toast ---------- */
   function toast(text) {
     const el = document.createElement('div');
@@ -242,5 +254,5 @@ const Economy = (() => {
     renderCoins();
   });
 
-  return { earn, earnShare, cosmetics, avatarString, renderCoins, item };
+  return { earn, earnShare, cosmetics, avatarString, renderCoins, item, owns, ownedDances };
 })();

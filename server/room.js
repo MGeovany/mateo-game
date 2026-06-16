@@ -433,7 +433,13 @@ function createRoom(code) {
           botForgetAll(res.player, res.card);
           if (pre9.myCard) botNoteOne(actor, res.player, res.card, pre9.myCard);
           pushState();
-          emitEvent({ name: 'blindSwap', player: actor, target: res.player });
+          // Include the exact slots so the client can animate the steal from
+          // the precise card position (fromCard = robber's slot, toCard = the
+          // stolen card's slot on the victim).
+          emitEvent({
+            name: 'blindSwap', player: actor, target: res.player,
+            fromCard: pre9.ownIdx, toCard: res.card,
+          });
           maybeRoundEnd(res.roundWin);
           break;
         }
@@ -506,14 +512,29 @@ function createRoom(code) {
         break;
       }
       case 'dance': {
-        // Taunt: broadcast the player's equipped dance. 8s cooldown so
-        // nobody floods the table with emojis.
+        // Taunt: broadcast the chosen dance emoji (or the equipped one as a
+        // fallback for bots). 8s cooldown so nobody floods the table.
         const p = players[from];
-        if (!started || !p || !p.cosmetics.dance) break;
+        if (!started || !p) break;
+        const emoji = (typeof msg.emoji === 'string' && msg.emoji)
+          ? msg.emoji.slice(0, 8) : p.cosmetics.dance;
+        if (!emoji) break;
         const now = Date.now();
         if (now - p.lastDance < 8000) break;
         p.lastDance = now;
-        emitEvent({ name: 'dance', player: from, emoji: p.cosmetics.dance });
+        emitEvent({ name: 'dance', player: from, emoji });
+        break;
+      }
+      case 'tomato': {
+        // Throw a tomato at a chosen opponent. Shares the dance cooldown.
+        const p = players[from];
+        if (!started || !p) break;
+        const target = msg.target;
+        if (typeof target !== 'number' || target < 0 || target >= players.length || target === from) break;
+        const now = Date.now();
+        if (now - p.lastDance < 8000) break;
+        p.lastDance = now;
+        emitEvent({ name: 'tomato', player: from, target });
         break;
       }
       case 'mateo': {

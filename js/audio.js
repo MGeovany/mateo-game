@@ -95,6 +95,49 @@ const AudioFX = (() => {
         tone({ freq: f, dur: 0.1, type: 'square', vol: 0.1, delay: i * 0.11 }));
     },
 
+    // Each taunt has its own voice
+    quack() {
+      tone({ freq: 430, end: 300, dur: 0.13, type: 'sawtooth', vol: 0.15 });
+      tone({ freq: 360, end: 230, dur: 0.15, type: 'sawtooth', vol: 0.14, delay: 0.14 });
+    },
+    cluck() {
+      [760, 1020, 760, 1100, 700].forEach((f, i) =>
+        tone({ freq: f, dur: 0.05, type: 'square', vol: 0.12, delay: i * 0.08 }));
+    },
+    bray() { // donkey "hee-haw"
+      tone({ freq: 640, end: 560, dur: 0.22, type: 'sawtooth', vol: 0.16 });
+      tone({ freq: 210, end: 110, dur: 0.45, type: 'sawtooth', vol: 0.16, delay: 0.24 });
+    },
+    splat() { // tomato hit
+      noise({ dur: 0.2, freq: 600, vol: 0.28 });
+      tone({ freq: 170, end: 60, dur: 0.2, type: 'sawtooth', vol: 0.13 });
+    },
+    disco() {
+      [523, 659, 784, 659, 523, 784, 1046].forEach((f, i) =>
+        tone({ freq: f, dur: 0.09, type: 'sawtooth', vol: 0.1, delay: i * 0.1 }));
+    },
+    salsa() {
+      [392, 494, 587, 494, 392, 587, 740].forEach((f, i) =>
+        tone({ freq: f, dur: 0.1, type: 'triangle', vol: 0.11, delay: i * 0.11 }));
+    },
+    party() {
+      [523, 587, 659, 784, 880, 988, 1046].forEach((f, i) =>
+        tone({ freq: f, dur: 0.08, type: 'square', vol: 0.1, delay: i * 0.09 }));
+    },
+    // Pick the right voice for a given taunt emoji
+    taunt(emoji) {
+      switch (emoji) {
+        case '🦆': return this.quack();
+        case '🐔': return this.cluck();
+        case '🫏': return this.bray();
+        case '🍅': return this.splat();
+        case '🕺': return this.disco();
+        case '💃': return this.salsa();
+        case '🪩': return this.party();
+        default: return this.dance();
+      }
+    },
+
     mateo() {
       [523, 659, 784, 1046, 784, 1046].forEach((f, i) =>
         tone({ freq: f, dur: 0.13, type: 'square', vol: 0.12, delay: i * 0.12 }));

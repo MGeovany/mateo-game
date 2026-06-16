@@ -36,7 +36,7 @@ const AVATARS = ['🤖', '👽', '🐸', '🐱', '🦊', '💀', '🤡', '👾']
 const HATS = ['', '🧢', '🎩', '🎓', '🪖', '👑'];
 const FACES = ['', '😎', '😤', '🤪', '😈', '🥱'];
 const SHOES = ['', '👟', '🥾', '👠', '👢'];
-const DANCES = ['💃', '🕺', '🦆', '🐔', '🪩'];
+const DANCES = ['💃', '🕺', '🦆', '🐔', '🪩', '🫏'];
 const TABLES = ['table-default', 'table-ocean', 'table-matrix', 'table-gold', 'table-blood'];
 const CARDS = ['cards-default', 'cards-red', 'cards-gold', 'cards-matrix', 'cards-purple'];
 

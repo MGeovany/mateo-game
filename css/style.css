@@ -405,6 +405,9 @@ html, body {
   max-width: 86%;
 }
 .pile { display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; }
+/* Fixed-size card slot inside each pile, so empty piles keep their place and
+   the row never reflows toward the center. */
+.pile-cards { display: flex; align-items: center; justify-content: center; width: var(--card-w); height: var(--card-h); }
 .pile-label { font-size: 7px; color: var(--neon-cyan); }
 .pile-empty {
   width: var(--card-w); height: var(--card-h);
@@ -683,6 +686,36 @@ html, body {
 
 /* dance taunt animation */
 .btn-dance.cooling { opacity: 0.4; pointer-events: none; }
+
+/* always-on taunt button + dance/tomato menu */
+.btn-taunt {
+  position: fixed; right: 14px; bottom: 78px; z-index: 70;
+  width: 52px; height: 52px; border-radius: 50%;
+  font-size: 24px; line-height: 1; cursor: pointer;
+  background: var(--neon-pink); color: #000; border: 3px solid #000;
+  box-shadow: 0 4px 0 #8f0f3c, 0 0 14px rgba(255,42,109,0.6);
+  image-rendering: pixelated;
+}
+.btn-taunt:active { transform: translateY(3px); }
+.btn-taunt.cooling { opacity: 0.4; pointer-events: none; }
+.taunt-menu {
+  position: fixed; right: 14px; bottom: 138px; z-index: 71;
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--felt); border: 3px solid var(--neon-pink);
+  box-shadow: 0 0 20px rgba(255,42,109,0.5);
+  padding: 10px; max-width: 78vw; max-height: 56vh; overflow-y: auto;
+  animation: rise 0.2s ease-out;
+}
+.taunt-opt { margin: 0; text-align: left; white-space: nowrap; }
+.btn-tomato { background: #ff3b3b; box-shadow: 0 4px 0 #7a1010, 0 0 10px rgba(255,59,59,0.6); }
+.taunt-empty { font-size: 7px; color: var(--neon-cyan); line-height: 1.7; max-width: 160px; }
+
+/* tomato projectile */
+.tomato-fly {
+  position: fixed; z-index: 2300; font-size: 36px; pointer-events: none;
+  filter: drop-shadow(0 0 6px rgba(255,59,59,0.7));
+}
+.tomato-fly.splat { font-size: 52px; transition: none; }
 .dance-float {
   position: absolute;
   top: -14px;

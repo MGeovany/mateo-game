@@ -39,7 +39,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=17" />
+  <link rel="stylesheet" href="css/style.css?v=18" />
 
   <script type="application/ld+json">
   {
@@ -158,7 +158,16 @@
             <span class="pile-label">MAZO <span id="deck-count"></span></span>
           </div>
           <div class="pile" id="discard-pile">
-            <div class="pile-empty">DESCARTE</div>
+            <div class="pile-cards"><div class="pile-empty">VACÍO</div></div>
+            <span class="pile-label">DESCARTE</span>
+          </div>
+          <div class="pile" id="burned-pile">
+            <div class="pile-cards"><div class="pile-empty">🔥</div></div>
+            <span class="pile-label">QUEMADAS <span id="burned-count"></span></span>
+          </div>
+          <div class="pile" id="drawn-float">
+            <div class="pile-cards"><div class="pile-empty">—</div></div>
+            <span class="pile-label">LEVANTADA</span>
           </div>
         </div>
       </div>
@@ -168,6 +177,10 @@
       <div id="message-bar" class="message-bar"></div>
       <div id="action-bar" class="action-bar"></div>
     </div>
+
+    <!-- Always-on taunt button + dance/tomato menu -->
+    <button id="btn-taunt" class="btn-taunt" title="Bailes y tomatazos">🎉</button>
+    <div id="taunt-menu" class="taunt-menu hidden"></div>
 
     <!-- Drawn card modal (only shown on the active player's device) -->
     <div id="drawn-modal" class="modal hidden">
@@ -191,6 +204,7 @@
       </table>
       <button id="btn-next-round" class="btn btn-big hidden">SIGUIENTE RONDA ▶</button>
       <button id="btn-new-game" class="btn btn-small hidden">↺ NUEVO JUEGO</button>
+      <button id="btn-go-home" class="btn btn-small hidden">🏠 IR AL INICIO</button>
       <p id="score-hint" class="wait-hint"></p>
     </div>
   </section>
@@ -240,10 +254,10 @@
   </div>
 
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
-  <script src="js/audio.js?v=17"></script>
-  <script src="js/economy.js?v=17"></script>
-  <script src="js/cards.js?v=17"></script>
-  <script src="js/net.js?v=17"></script>
-  <script src="js/ui.js?v=17"></script>
+  <script src="js/audio.js?v=18"></script>
+  <script src="js/economy.js?v=18"></script>
+  <script src="js/cards.js?v=18"></script>
+  <script src="js/net.js?v=18"></script>
+  <script src="js/ui.js?v=18"></script>
 </body>
 </html>

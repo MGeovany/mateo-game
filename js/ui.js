@@ -168,68 +168,59 @@ const UI = (() => {
     renderBanner();
     renderActions();
     renderMessage();
+    updateTauntButton();
     $('#round-indicator').textContent = `RONDA ${snap.round} · SALA ${roomCode}`;
   }
 
+  // The four central piles are always present in fixed positions (deck,
+  // discard, burned, drawn). We only swap each pile's CARD content so the
+  // layout never reflows — an empty pile keeps its slot instead of letting
+  // the others slide to the middle.
   function renderCenter() {
     $('#deck-count').textContent = `(${snap.deckCount})`;
     $('#deck-pile').classList.toggle('clickable',
       snap.phase === 'turn' && snap.current === myIdx);
 
-    const pile = $('#discard-pile');
-    pile.innerHTML = '';
+    // DISCARD (center)
+    const dCards = $('#discard-pile .pile-cards');
+    dCards.innerHTML = '';
     if (snap.discardTop) {
       const top = cardEl(snap.discardTop);
       // Only the fresh discard glows; a stale top (already burned over or
       // taken past) is dimmed and can't be touched
       top.classList.add(snap.fresh ? 'fresh-glow' : 'stale');
-      pile.appendChild(top);
+      dCards.appendChild(top);
     } else {
-      pile.innerHTML = '<div class="pile-empty">DESCARTE</div>';
+      dCards.innerHTML = '<div class="pile-empty">VACÍO</div>';
     }
-    const label = document.createElement('span');
-    label.className = 'pile-label';
-    label.textContent = 'DESCARTE';
-    pile.appendChild(label);
 
-    // Eliminated (burned) cards pile. While the last burned card is still
-    // the active burn target, show its face so players know what to match
-    let burned = $('#burned-pile');
-    if (burned) burned.remove();
+    // BURNED (eliminated). While the last burned card is still the active burn
+    // target, show its face so players know what to match.
+    const bCards = $('#burned-pile .pile-cards');
+    bCards.innerHTML = '';
+    $('#burned-count').textContent = snap.eliminatedCount > 0 ? `(${snap.eliminatedCount})` : '';
     if (snap.eliminatedCount > 0) {
-      burned = document.createElement('div');
-      burned.className = 'pile';
-      burned.id = 'burned-pile';
       const chainActive = snap.burnTarget && snap.eliminatedTop &&
         snap.burnTarget.rank === snap.eliminatedTop.rank &&
         snap.burnTarget.suit === snap.eliminatedTop.suit;
       if (chainActive) {
         const topCard = cardEl(snap.eliminatedTop);
         topCard.classList.add('burn-glow');
-        burned.appendChild(topCard);
+        bCards.appendChild(topCard);
       } else {
-        burned.innerHTML = `<div class="burned-stack">🔥</div>`;
+        bCards.innerHTML = '<div class="burned-stack">🔥</div>';
       }
-      const l = document.createElement('span');
-      l.className = 'pile-label';
-      l.textContent = `QUEMADAS (${snap.eliminatedCount})`;
-      burned.appendChild(l);
-      $('.table-center').appendChild(burned);
+    } else {
+      bCards.innerHTML = '<div class="pile-empty">🔥</div>';
     }
 
-    // Drawn card: face up for the drawer, face down for everyone else
-    let float = $('#drawn-float');
-    if (float) float.remove();
+    // DRAWN (face up for the drawer, face down for everyone else)
+    const fCards = $('#drawn-float .pile-cards');
+    fCards.innerHTML = '';
     if (snap.drawn && !modalVisible()) {
-      float = document.createElement('div');
-      float.className = 'pile';
-      float.id = 'drawn-float';
-      float.appendChild(cardEl(snap.drawn === true ? null : snap.drawn));
-      const l = document.createElement('span');
-      l.className = 'pile-label';
-      l.textContent = 'LEVANTADA';
-      float.appendChild(l);
-      $('.table-center').appendChild(float);
+      fCards.appendChild(cardEl(snap.drawn === true ? null : snap.drawn));
+    } else {
+      fCards.innerHTML = '<div class="pile-empty">—</div>';
     }
   }
 
@@ -282,7 +273,12 @@ const UI = (() => {
       if (isCurrent) {
         addBtn('🂠 LEVANTAR DEL MAZO', '', () => send({ a: 'draw' }));
         if (snap.discardTop) addBtn('🤚 TOMAR DEL CENTRO', 'btn-small', () => send({ a: 'takeDiscard' }));
-        addBtn('📣 ¡MATEO!', 'btn-danger', () => send({ a: 'mateo' }));
+        addBtn('📣 ¡MATEO!', 'btn-danger', () => {
+          AudioFX.click();
+          if (confirm('¿Cantar ¡MATEO!? Esto TERMINA la ronda al instante. Solo ganas si tienes la suma más baja.')) {
+            send({ a: 'mateo' });
+          }
+        });
       }
       if (snap.burnTarget && me.hand.length > 0) {
         addBtn('🔥 QUEMAR', 'btn-warn', () => { AudioFX.click(); send({ a: 'burnStart' }); });
@@ -297,19 +293,85 @@ const UI = (() => {
     if (snap.phase === 'drawn' && isCurrent && swapMode) {
       addBtn('✖ VOLVER', 'btn-small', () => { swapMode = false; openDrawnModal(); });
     }
+    // Taunts live on the always-on floating button (see updateTauntButton)
+  }
 
-    // Taunt: dance for the table (any moment during play, 8s cooldown)
-    const danceEmoji = Economy.cosmetics().dance;
-    const inPlay = !['peek', 'roundEnd', 'gameOver'].includes(snap.phase);
-    if (danceEmoji && inPlay) {
-      const onCooldown = Date.now() < danceCooldownUntil;
-      addBtn(`${danceEmoji} BAILAR`, 'btn-small btn-dance' + (onCooldown ? ' cooling' : ''), () => {
-        if (Date.now() < danceCooldownUntil) return;
-        danceCooldownUntil = Date.now() + 8000;
-        send({ a: 'dance' });
-        render();
-      });
+  /* ---------- taunts (always-on dance / tomato button) ---------- */
+  function tauntOnCooldown() { return Date.now() < danceCooldownUntil; }
+
+  function updateTauntButton() {
+    const btn = $('#btn-taunt');
+    if (!btn) return;
+    btn.classList.toggle('cooling', tauntOnCooldown());
+  }
+
+  function closeTauntMenu() { $('#taunt-menu').classList.add('hidden'); }
+
+  function toggleTauntMenu() {
+    const menu = $('#taunt-menu');
+    if (!menu.classList.contains('hidden')) { closeTauntMenu(); return; }
+    AudioFX.click();
+    buildDanceMenu();
+    menu.classList.remove('hidden');
+  }
+
+  function buildDanceMenu() {
+    const menu = $('#taunt-menu');
+    menu.innerHTML = '';
+    const dances = Economy.ownedDances();
+    dances.forEach((d) => {
+      const b = document.createElement('button');
+      b.className = 'btn btn-small taunt-opt';
+      b.textContent = `${d.emoji} ${d.name}`;
+      b.addEventListener('click', () => { doDance(d.emoji); closeTauntMenu(); });
+      menu.appendChild(b);
+    });
+    if (Economy.owns('dance-tomato')) {
+      const b = document.createElement('button');
+      b.className = 'btn btn-small taunt-opt btn-tomato';
+      b.textContent = '🍅 TOMATAZO ▸';
+      b.addEventListener('click', buildTomatoMenu);
+      menu.appendChild(b);
     }
+    if (!menu.children.length) {
+      const p = document.createElement('p');
+      p.className = 'taunt-empty';
+      p.textContent = 'compra bailes en la 🛒 TIENDA';
+      menu.appendChild(p);
+    }
+  }
+
+  // Pick who gets the tomato
+  function buildTomatoMenu() {
+    const menu = $('#taunt-menu');
+    menu.innerHTML = '';
+    (snap ? snap.players : []).forEach((pl, i) => {
+      if (i === myIdx) return;
+      const b = document.createElement('button');
+      b.className = 'btn btn-small taunt-opt';
+      b.textContent = `🍅 a ${pl.avatar || ''} ${pl.name.toUpperCase()}`;
+      b.addEventListener('click', () => { throwTomato(i); closeTauntMenu(); });
+      menu.appendChild(b);
+    });
+    const back = document.createElement('button');
+    back.className = 'btn btn-small';
+    back.textContent = '◀ VOLVER';
+    back.addEventListener('click', buildDanceMenu);
+    menu.appendChild(back);
+  }
+
+  function doDance(emoji) {
+    if (tauntOnCooldown()) return;
+    danceCooldownUntil = Date.now() + 8000;
+    send({ a: 'dance', emoji });
+    updateTauntButton();
+  }
+
+  function throwTomato(targetIdx) {
+    if (tauntOnCooldown()) return;
+    danceCooldownUntil = Date.now() + 8000;
+    send({ a: 'tomato', target: targetIdx });
+    updateTauntButton();
   }
 
   function renderMessage() {
@@ -557,8 +619,10 @@ const UI = (() => {
 
     // Drawn modal only for the active player who just drew from the deck.
     // On a fresh draw, the modal flies in from the deck (card pulled out).
+    // Guard on !modalVisible() so repeated 'drawn' state pushes don't reopen
+    // (and re-animate) the dialog — that was making it appear twice.
     if (s.phase === 'drawn' && s.current === myIdx && s.drawn !== true && !swapMode) {
-      openDrawnModal(phaseChanged && !modalVisible());
+      if (!modalVisible()) openDrawnModal(phaseChanged);
     } else if (s.phase !== 'drawn') {
       closeDrawnModal();
     }
@@ -587,19 +651,19 @@ const UI = (() => {
         // The drawer sees the card pop up in their modal; everyone else sees a
         // face-down card glide from the deck to the "LEVANTADA" slot. Slow and
         // deliberate so it's clear the card came from the central deck.
-        if (ev.player !== myIdx) flyCard($('#deck-pile'), $('#drawn-float'), null, 700);
+        if (ev.player !== myIdx) flyCard($('#deck-pile .card-back'), $('#drawn-float .pile-cards'), null, 700);
         break;
       case 'tookDiscard': {
         AudioFX.draw();
         flash(`${name(ev.player)} tomó el descarte`);
         const dc = (snap.drawn && snap.drawn.rank) ? snap.drawn : null;
-        flyCard($('#discard-pile'), $('#drawn-float'), dc, 700);
+        flyCard($('#discard-pile .pile-cards'), $('#drawn-float .pile-cards'), dc, 700);
         break;
       }
       case 'discard':
         AudioFX.discard();
         // card travels from the player's hand to the discard pile
-        flyCard(seatHand(ev.player), $('#discard-pile'), snap.discardTop, 240);
+        flyCard(seatHand(ev.player), $('#discard-pile .pile-cards'), snap.discardTop, 240);
         slamDiscard();
         break;
       case 'swap': AudioFX.swap(); break;
@@ -613,18 +677,22 @@ const UI = (() => {
           ? `👁 ${name(ev.player)} está mirando una de SUS cartas`
           : `👀 ${name(ev.player)} está viendo una carta de ${name(ev.target)}`, 4000);
         break;
-      case 'blindSwap':
+      case 'blindSwap': {
         AudioFX.swap();
-        // power 9 "steal": a hand drags the card out of the victim's hand to
-        // the robber; the card the robber gives back glides quietly the other way
-        flyCard(seatHand(ev.player), seatHand(ev.target), null, 750);
-        flyHandCard(seatHand(ev.target), seatHand(ev.player), null, 1100);
-        flash(`✋ ${name(ev.player)} le robó una carta a ${name(ev.target)}`, 3600);
+        // power 9 "steal": a hand slowly drags the stolen card from the victim's
+        // EXACT slot to the robber's slot (face down — you see WHICH position
+        // moved, not the value); the card given back glides quietly the other way.
+        const robberSlot = seatCardEl(ev.player, ev.fromCard);
+        const victimSlot = seatCardEl(ev.target, ev.toCard);
+        flyCard(robberSlot, victimSlot, null, 900);
+        flyHandCard(victimSlot, robberSlot, null, 1400);
+        flash(`✋ ${name(ev.player)} le robó la carta #${(ev.toCard ?? 0) + 1} a ${name(ev.target)}`, 3800);
         break;
+      }
       case 'burnOk':
         AudioFX.burnOk();
         // burned card flies from the burner's hand to the burned pile
-        flyCard(seatHand(ev.player), $('#burned-pile') || $('#discard-pile'), ev.card, 260);
+        flyCard(seatHand(ev.player), $('#burned-pile .pile-cards'), ev.card, 260);
         flash(`🔥 ¡${name(ev.player)} QUEMÓ ${cardLabel(ev.card)}!`);
         break;
       case 'burnFail':
@@ -636,7 +704,7 @@ const UI = (() => {
         AudioFX.combine();
         // the matched cards fly from the hand to the discard pile
         (ev.cards || []).forEach((cd, i) =>
-          flyCard(seatHand(ev.player), $('#discard-pile'), cd, 260 + i * 45));
+          flyCard(seatHand(ev.player), $('#discard-pile .pile-cards'), cd, 260 + i * 45));
         slamDiscard();
         flash(`♦♦♦ ¡TRÍO DE ${ev.cards[0].rank}! ${name(ev.player)} descartó 3 cartas`);
         break;
@@ -664,13 +732,48 @@ const UI = (() => {
         flash(`✔ ${name(ev.player)} SE RECONECTÓ`, 4000);
         break;
       case 'dance':
-        AudioFX.dance();
+        AudioFX.taunt(ev.emoji);
         danceOverSeat(ev.player, ev.emoji);
         flash(ev.player === myIdx
           ? `${ev.emoji} ¡BAILANDO PARA LA MESA!`
           : `${ev.emoji} ¡${name(ev.player)} TE ESTÁ BAILANDO!`, 3000);
         break;
+      case 'tomato':
+        AudioFX.splat();
+        tomatoThrow(ev.player, ev.target);
+        flash(ev.target === myIdx
+          ? `🍅 ¡${name(ev.player)} TE LANZÓ UN TOMATAZO!`
+          : `🍅 ${name(ev.player)} le lanzó un tomatazo a ${name(ev.target)}`, 3000);
+        break;
     }
+  }
+
+  // A tomato arcs from the thrower's seat to the target's, then splatters
+  function tomatoThrow(fromIdx, toIdx) {
+    requestAnimationFrame(() => {
+      const fromEl = seatFor(fromIdx);
+      const toEl = seatFor(toIdx);
+      if (!fromEl || !toEl) return;
+      const a = centerOf(fromEl);
+      const b = centerOf(toEl);
+      if (!a.ok || !b.ok) return;
+      const t = document.createElement('div');
+      t.className = 'tomato-fly';
+      t.textContent = '🍅';
+      t.style.left = `${a.x - 18}px`;
+      t.style.top = `${a.y - 18}px`;
+      document.body.appendChild(t);
+      requestAnimationFrame(() => {
+        t.style.transition = 'transform 0.6s cubic-bezier(0.4, 0, 0.7, 1)';
+        t.style.transform = `translate(${b.x - a.x}px, ${b.y - a.y}px) rotate(540deg)`;
+      });
+      setTimeout(() => {
+        t.textContent = '💥';
+        t.classList.add('splat');
+        shakeSeat(toIdx);
+        setTimeout(() => t.remove(), 700);
+      }, 600);
+    });
   }
 
   // Big bouncing emoji + music notes over the dancer's seat for ~3s
@@ -748,6 +851,15 @@ const UI = (() => {
   function seatHand(idx) {
     const seat = seatFor(idx);
     return seat ? (seat.querySelector('.hand') || seat) : null;
+  }
+
+  // A specific card slot element in a seat (every slot — real card or hole —
+  // renders a .card, so the index matches the hand index). Falls back to the
+  // hand container if the slot can't be found.
+  function seatCardEl(idx, cardIdx) {
+    const seat = seatFor(idx);
+    if (!seat) return null;
+    return seat.querySelectorAll('.hand .card')[cardIdx] || seatHand(idx);
   }
 
   // The true on-table card size. Every card (deck, hand, discard) shares
@@ -874,6 +986,8 @@ const UI = (() => {
 
     $('#btn-next-round').classList.toggle('hidden', over || !amHost());
     $('#btn-new-game').classList.toggle('hidden', !over || !amHost());
+    // At game over anyone can bail back to the home screen
+    $('#btn-go-home').classList.toggle('hidden', !over);
     $('#score-hint').textContent = amHost() ? '' : over
       ? 'el anfitrión puede iniciar otro juego'
       : 'esperando a que el anfitrión inicie la siguiente ronda…';
@@ -1059,8 +1173,41 @@ const UI = (() => {
     send({ a: 'newGame' });
   });
 
+  // Leave the table and return to a fresh home screen
+  $('#btn-go-home').addEventListener('click', () => {
+    AudioFX.click();
+    location.href = location.pathname;
+  });
+
+  // Always-on taunt button: opens the dance / tomato menu
+  $('#btn-taunt').addEventListener('click', toggleTauntMenu);
+  // Close the menu when clicking elsewhere
+  document.addEventListener('click', (e) => {
+    const menu = $('#taunt-menu');
+    if (menu.classList.contains('hidden')) return;
+    if (e.target.closest('#taunt-menu') || e.target.closest('#btn-taunt')) return;
+    closeTauntMenu();
+  });
+
   $('#deck-pile').addEventListener('click', () => {
     if (snap && snap.phase === 'turn' && snap.current === myIdx) send({ a: 'draw' });
+  });
+
+  // Spacebar = QUEMAR when a burn is available (ignored while typing in a field
+  // or while a dialog is up).
+  function canBurnNow() {
+    return snap && screens.game.classList.contains('active') &&
+      snap.phase === 'turn' && snap.burnTarget &&
+      snap.players[myIdx] && snap.players[myIdx].hand.length > 0 && !modalVisible();
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' && e.key !== ' ') return;
+    const el = document.activeElement;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+    if (!canBurnNow()) return;
+    e.preventDefault();
+    AudioFX.click();
+    send({ a: 'burnStart' });
   });
 
   $('#btn-rules').addEventListener('click', () => {
