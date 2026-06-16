@@ -281,7 +281,7 @@ const UI = (() => {
     if (snap.phase === 'turn') {
       if (isCurrent) {
         addBtn('🂠 LEVANTAR DEL MAZO', '', () => send({ a: 'draw' }));
-        if (snap.discardTop) addBtn('⬆ TOMAR DEL CENTRO', 'btn-small', () => send({ a: 'takeDiscard' }));
+        if (snap.discardTop) addBtn('🤚 TOMAR DEL CENTRO', 'btn-small', () => send({ a: 'takeDiscard' }));
         addBtn('📣 ¡MATEO!', 'btn-danger', () => send({ a: 'mateo' }));
       }
       if (snap.burnTarget && me.hand.length > 0) {
@@ -347,7 +347,7 @@ const UI = (() => {
         break;
       case 'swapDiscard':
         msg = isCurrent
-          ? 'Tomaste el descarte: elige cuál de tus cartas reemplazar'
+          ? '🤚 Tomaste el descarte: elige cuál de tus cartas reemplazar'
           : `${curName} tomó el descarte…`;
         break;
       case 'combine':
@@ -356,16 +356,16 @@ const UI = (() => {
           : `${curName} intenta combinar un trío…`;
         break;
       case 'power7':
-        msg = isCurrent ? 'PODER 7: toca una de TUS cartas para verla' : `${curName} usa el PODER 7…`;
+        msg = isCurrent ? '👁 PODER 7: toca una de TUS cartas para verla' : `${curName} usa el PODER 7…`;
         break;
       case 'power8':
-        msg = isCurrent ? 'PODER 8: toca una carta de OTRO jugador para verla' : `${curName} usa el PODER 8… ¡cuidado!`;
+        msg = isCurrent ? '👀 PODER 8: toca una carta de OTRO jugador para verla' : `${curName} usa el PODER 8… ¡cuidado!`;
         break;
       case 'power9a':
-        msg = isCurrent ? 'PODER 9: elige una carta TUYA para intercambiar' : `${curName} usa el PODER 9…`;
+        msg = isCurrent ? '✋ PODER 9: elige una carta TUYA para intercambiar' : `${curName} usa el PODER 9…`;
         break;
       case 'power9b':
-        msg = isCurrent ? 'PODER 9: ahora elige la carta de OTRO jugador' : `${curName} usa el PODER 9…`;
+        msg = isCurrent ? '✋ PODER 9: ahora elige la carta de OTRO jugador' : `${curName} usa el PODER 9…`;
         break;
       case 'burn':
         msg = snap.ctx.burner === myIdx
@@ -416,9 +416,9 @@ const UI = (() => {
 
     const isWild = card.rank === 'Q' && card.suit === '♥';
     const hints = {
-      '7': 'PODER: ver una de tus cartas',
-      '8': 'PODER: ver una carta de otro jugador',
-      '9': 'PODER: intercambio a ciegas con otro jugador',
+      '7': '👁 PODER: ver una de tus cartas',
+      '8': '👀 PODER: ver una carta de otro jugador',
+      '9': '✋ PODER: intercambio a ciegas con otro jugador',
     };
     $('#drawn-hint').textContent = isWild
       ? '★ Q DE CORAZONES: ¡COMODÍN! ★'
@@ -605,11 +605,13 @@ const UI = (() => {
       case 'swap': AudioFX.swap(); break;
       case 'power': AudioFX.power(); flash(`★ ${name(ev.player)} usa el PODER ${ev.rank}`); break;
       case 'peeked':
-        // wiggle the exact card being looked at and announce it in the center
+        // wiggle the exact card being looked at, float an eye over it (one eye
+        // for your own card, two for someone else's) and announce it in the center
         tiltCard(ev.target, ev.card);
+        eyeOverCard(ev.target, ev.card, ev.own ? '👁' : '👀');
         centerAnnounce(ev.own
           ? `👁 ${name(ev.player)} está mirando una de SUS cartas`
-          : `👁 ${name(ev.player)} está viendo una carta de ${name(ev.target)}`, 4000);
+          : `👀 ${name(ev.player)} está viendo una carta de ${name(ev.target)}`, 4000);
         break;
       case 'blindSwap':
         AudioFX.swap();
@@ -710,6 +712,25 @@ const UI = (() => {
       void el.offsetWidth; // restart the animation
       el.classList.add('tilt');
       setTimeout(() => el.classList.remove('tilt'), 800);
+    });
+  }
+
+  // Float an eye over the exact card being peeked: 👁 for your own card,
+  // 👀 for someone else's. Visible to everyone so the table sees the spy.
+  function eyeOverCard(p, cardIdx, emoji) {
+    requestAnimationFrame(() => {
+      const seat = seatFor(p);
+      const el = seat && seat.querySelectorAll('.hand .card')[cardIdx];
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      if (!r.width) return;
+      const eye = document.createElement('div');
+      eye.className = 'eye-float';
+      eye.textContent = emoji;
+      eye.style.left = `${r.left + r.width / 2}px`;
+      eye.style.top = `${r.top + r.height / 2}px`;
+      document.body.appendChild(eye);
+      setTimeout(() => eye.remove(), 2600);
     });
   }
 

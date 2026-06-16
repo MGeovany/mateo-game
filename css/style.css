@@ -713,6 +713,22 @@ html, body {
   100% { transform: translateY(-16px); opacity: 0; }
 }
 
+/* eye that floats over a card being peeked (👁 own / 👀 other) */
+.eye-float {
+  position: fixed;
+  z-index: 2200;
+  font-size: 30px;
+  pointer-events: none;
+  filter: drop-shadow(0 0 8px var(--neon-cyan));
+  animation: eye-peek 2.6s ease-out forwards;
+}
+@keyframes eye-peek {
+  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+  14% { transform: translate(-50%, -90%) scale(1.15); opacity: 1; }
+  80% { transform: translate(-50%, -90%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -120%) scale(0.9); opacity: 0; }
+}
+
 /* table themes (host's pick dresses the room) */
 #table[data-theme="table-ocean"] .table-circle {
   background: radial-gradient(circle at 50% 38%, #0a3d62 0%, #051c30 65%);
