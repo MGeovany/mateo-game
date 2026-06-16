@@ -745,15 +745,18 @@ const UI = (() => {
         flash(`❌ ${name(ev.player)} falló el trío (${cardLabel(ev.cards[0])}, ${cardLabel(ev.cards[1])}) → +1 carta`);
         break;
       case 'mateoCall':
-        AudioFX.mateo();
-        flash(ev.won
-          ? `📣 ¡${name(ev.player)} CANTÓ MATEO Y ACERTÓ!`
-          : `📣 ${name(ev.player)} cantó MATEO… ¡y falló! +15 de penitencia`, 3400);
+        // The full cinematic (shout → drumroll → winner) is driven by the
+        // 'roundEnd' event below, once the snapshot carries the round result.
         break;
       case 'roundEnd':
-        // 'mateo' already played its sting via the mateoCall event
-        if (ev.reason !== 'mateo') AudioFX.win();
-        flash('¡FIN DE RONDA! Mira las cartas y pulsa CONTINUAR ▶', 5000);
+        if (ev.reason === 'mateo') {
+          // Cinematic: someone shouted MATEO → shout, drum roll, round winner,
+          // then jump straight to the results table.
+          playMateoSequence(() => showScores());
+        } else {
+          AudioFX.win();
+          flash('¡FIN DE RONDA! Mira las cartas y pulsa CONTINUAR ▶', 5000);
+        }
         break;
       case 'left':
         flash(`⚠ ${name(ev.player)} SE DESCONECTÓ — puede volver a entrar con su nombre y el código`, 6000);
@@ -974,6 +977,77 @@ const UI = (() => {
     if (!back) return;
     back.classList.add('draw-pop');
     setTimeout(() => back.classList.remove('draw-pop'), 240);
+  }
+
+  /* ---------- MATEO cinematic: shout → drum roll → round winner ---------- */
+  // Round winner = the sole strictly-lowest hand this round (by card sum).
+  // Returns null on a tie.
+  function roundWinnerName() {
+    const r = snap.roundResult;
+    if (!r) return null;
+    let min = Infinity, who = null, ties = 0;
+    r.rows.forEach((row) => {
+      if (row.sum < min) { min = row.sum; who = row.name; ties = 1; }
+      else if (row.sum === min) ties++;
+    });
+    return ties === 1 ? who : null;
+  }
+
+  function ensureCineEl() {
+    let cine = $('#mateo-cine');
+    if (!cine) {
+      cine = document.createElement('div');
+      cine.id = 'mateo-cine';
+      cine.className = 'mateo-cine';
+      document.body.appendChild(cine);
+    }
+    return cine;
+  }
+
+  function playMateoSequence(done) {
+    const r = snap.roundResult;
+    if (!r) { done && done(); return; }
+    const caller = snap.players[r.caller].name.toUpperCase();
+    const won = r.callerWon;
+    const winner = roundWinnerName();
+
+    const cine = ensureCineEl();
+    const stage = document.createElement('div');
+    stage.className = 'cine-stage';
+    cine.innerHTML = '';
+    cine.appendChild(stage);
+    cine.classList.add('show');
+
+    // 1) The shout
+    AudioFX.shoutMateo();
+    stage.innerHTML =
+      `<div class="cine-emoji cine-pop">📣</div>` +
+      `<div class="cine-big">¡${caller}<br>GRITÓ <span class="cine-yell">MATEOOO!</span></div>`;
+
+    // 2) Drum roll
+    setTimeout(() => {
+      AudioFX.drumroll();
+      stage.innerHTML =
+        `<div class="cine-emoji cine-shake">🥁</div>` +
+        `<div class="cine-sub">REDOBLE DE TAMBORES…</div>`;
+    }, 2100);
+
+    // 3) Reveal the round winner
+    setTimeout(() => {
+      AudioFX.crash();
+      stage.innerHTML = winner
+        ? `<div class="cine-emoji cine-pop">🏆</div>` +
+          `<div class="cine-big">GANADOR DE LA RONDA<br><span class="cine-yell">${winner.toUpperCase()}</span></div>` +
+          `<div class="cine-sub">${won ? `${caller} cantó MATEO y acertó` : `${caller} cantó MATEO… y falló (+15)`}</div>`
+        : `<div class="cine-emoji cine-pop">🤝</div>` +
+          `<div class="cine-big">¡EMPATE EN LA RONDA!</div>`;
+    }, 4600);
+
+    // 4) On to the results table
+    setTimeout(() => {
+      cine.classList.remove('show');
+      done && done();
+    }, 7400);
   }
 
   /* ---------- score screen ---------- */

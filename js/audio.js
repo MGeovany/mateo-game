@@ -143,6 +143,45 @@ const AudioFX = (() => {
         tone({ freq: f, dur: 0.13, type: 'square', vol: 0.12, delay: i * 0.12 }));
     },
 
+    // A real spoken "¡MATEOOO!" shout via the browser's speech synthesis,
+    // layered over the retro sting so there's always SOMETHING even when no
+    // voice is installed.
+    shoutMateo() {
+      this.mateo();
+      try {
+        const synth = window.speechSynthesis;
+        if (!synth) return;
+        synth.cancel();
+        const u = new SpeechSynthesisUtterance('¡Mateooo!');
+        u.lang = 'es-AR';
+        u.rate = 0.85;
+        u.pitch = 1.4;
+        u.volume = 1;
+        synth.speak(u);
+      } catch (e) { /* no speech support — the sting already played */ }
+    },
+
+    // Accelerating snare roll that builds tension before the winner reveal.
+    drumroll() {
+      let t = 0;
+      const hits = 34;
+      for (let i = 0; i < hits; i++) {
+        const p = i / hits;
+        noise({ dur: 0.045, freq: 1700, vol: 0.06 + p * 0.16, delay: t });
+        t += 0.11 - p * 0.07; // speed up toward the end
+      }
+      // low tom rumble underneath
+      tone({ freq: 90, dur: t, type: 'triangle', vol: 0.05 });
+    },
+
+    // Cymbal crash for the reveal hit.
+    crash() {
+      noise({ dur: 0.8, freq: 6500, vol: 0.3 });
+      noise({ dur: 0.5, freq: 9500, vol: 0.18, delay: 0.02 });
+      tone({ freq: 1046, end: 1568, dur: 0.3, type: 'square', vol: 0.1 });
+      tone({ freq: 160, dur: 0.4, type: 'triangle', vol: 0.12 });
+    },
+
     win() {
       [523, 659, 784, 1046, 1318, 1568].forEach((f, i) =>
         tone({ freq: f, dur: 0.16, type: 'triangle', vol: 0.13, delay: i * 0.13 }));
