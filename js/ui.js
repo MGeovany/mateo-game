@@ -227,7 +227,7 @@ const UI = (() => {
       float.appendChild(cardEl(snap.drawn === true ? null : snap.drawn));
       const l = document.createElement('span');
       l.className = 'pile-label';
-      l.textContent = 'ROBADA';
+      l.textContent = 'LEVANTADA';
       float.appendChild(l);
       $('.table-center').appendChild(float);
     }
@@ -280,7 +280,7 @@ const UI = (() => {
     }
     if (snap.phase === 'turn') {
       if (isCurrent) {
-        addBtn('🂠 ROBAR', '', () => send({ a: 'draw' }));
+        addBtn('🂠 LEVANTAR DEL MAZO', '', () => send({ a: 'draw' }));
         if (snap.discardTop) addBtn('⬆ TOMAR DEL CENTRO', 'btn-small', () => send({ a: 'takeDiscard' }));
         addBtn('📣 ¡MATEO!', 'btn-danger', () => send({ a: 'mateo' }));
       }
@@ -336,14 +336,14 @@ const UI = (() => {
       case 'turn': {
         const burnHint = snap.burnTarget ? ` (puedes 🔥 QUEMAR un ${snap.burnTarget.rank})` : '';
         msg = isCurrent
-          ? 'Roba del mazo, toma el descarte, quema o grita ¡MATEO!'
+          ? 'Levanta del mazo, toma el descarte, quema o grita ¡MATEO!'
           : `${curName} está jugando…${burnHint}`;
         break;
       }
       case 'drawn':
         msg = isCurrent
           ? (swapMode ? 'Elige cuál de tus cartas reemplazar' : '')
-          : `${curName} robó una carta y está decidiendo…`;
+          : `${curName} levantó una carta y está decidiendo…`;
         break;
       case 'swapDiscard':
         msg = isCurrent
@@ -585,7 +585,7 @@ const UI = (() => {
         AudioFX.draw();
         deckPop();
         // The drawer sees the card pop up in their modal; everyone else sees a
-        // face-down card glide from the deck to the "ROBADA" slot.
+        // face-down card glide from the deck to the "LEVANTADA" slot.
         if (ev.player !== myIdx) flyCard($('#deck-pile'), $('#drawn-float'), null);
         break;
       case 'tookDiscard': {
