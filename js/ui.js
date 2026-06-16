@@ -608,7 +608,7 @@ const UI = (() => {
         tiltCard(ev.target, ev.card);
         centerAnnounce(ev.own
           ? `👁 ${name(ev.player)} está mirando una de SUS cartas`
-          : `👁 ${name(ev.player)} está viendo una carta de ${name(ev.target)}`);
+          : `👁 ${name(ev.player)} está viendo una carta de ${name(ev.target)}`, 4000);
         break;
       case 'blindSwap':
         AudioFX.swap();
