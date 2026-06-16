@@ -293,10 +293,10 @@ const UI = (() => {
         if (snap.discardTop) addBtn('🤚 TOMAR DEL CENTRO', 'btn-small', () => send({ a: 'takeDiscard' }), 'T');
         addBtn('📣 ¡MATEO!', 'btn-danger', () => {
           AudioFX.click();
-          if (confirm('¿Cantar ¡MATEO!? Esto TERMINA la ronda al instante. Solo ganas si tienes la suma más baja.')) {
+          gameConfirm('¿Cantar ¡MATEO!? Esto TERMINA la ronda al instante. Solo ganas si tienes la suma más baja.', () => {
             AudioFX.shoutMateo(); // shout the instant you commit, on the click gesture
             send({ a: 'mateo' });
-          }
+          });
         }, 'M');
       }
       if (snap.burnTarget && me.hand.length > 0) {
@@ -349,7 +349,9 @@ const UI = (() => {
       const b = document.createElement('button');
       b.className = 'btn btn-small taunt-opt btn-tomato';
       b.textContent = '🍅 TOMATAZO ▸';
-      b.addEventListener('click', buildTomatoMenu);
+      // stopPropagation: this rebuilds the menu (detaching this button), which
+      // would otherwise trip the click-outside handler and close the menu.
+      b.addEventListener('click', (e) => { e.stopPropagation(); buildTomatoMenu(); });
       menu.appendChild(b);
     }
     if (!menu.children.length) {
@@ -375,7 +377,7 @@ const UI = (() => {
     const back = document.createElement('button');
     back.className = 'btn btn-small';
     back.textContent = '◀ VOLVER';
-    back.addEventListener('click', buildDanceMenu);
+    back.addEventListener('click', (e) => { e.stopPropagation(); buildDanceMenu(); });
     menu.appendChild(back);
   }
 
@@ -583,6 +585,40 @@ const UI = (() => {
 
   function closeDrawnModal() {
     $('#drawn-modal').classList.add('hidden');
+  }
+
+  /* ---------- in-game styled dialogs (replace native confirm/alert) ---------- */
+  function gameModal(title, text, buttons) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal';
+    const box = document.createElement('div');
+    box.className = 'modal-box';
+    box.innerHTML =
+      (title ? `<p class="modal-title">${title}</p>` : '') +
+      `<p class="modal-hint">${text}</p>`;
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    buttons.forEach((b) => {
+      const el = document.createElement('button');
+      el.className = `btn ${b.cls || ''}`;
+      el.textContent = b.label;
+      el.addEventListener('click', () => { AudioFX.click(); overlay.remove(); b.fn && b.fn(); });
+      actions.appendChild(el);
+    });
+    box.appendChild(actions);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+  }
+
+  function gameConfirm(text, onYes) {
+    gameModal('', text, [
+      { label: '✖ NO', cls: 'btn-small' },
+      { label: '✔ SÍ', cls: 'btn-success', fn: onYes },
+    ]);
+  }
+
+  function gameAlert(text) {
+    gameModal('', text, [{ label: 'OK', cls: 'btn-success' }]);
   }
 
   /* ---------- server messages: lobby / state / events ---------- */
@@ -1371,8 +1407,9 @@ const UI = (() => {
   // Transient connection drops: Socket.IO reconnects and Net auto-rejoins
   Net.on('_dropped', (info) => {
     if (info.fatal) {
-      alert('Se perdió la sesión con el servidor');
-      location.reload();
+      gameModal('CONEXIÓN PERDIDA', 'Se perdió la sesión con el servidor.', [
+        { label: '🔄 RECARGAR', cls: 'btn-success', fn: () => location.reload() },
+      ]);
       return;
     }
     if (snap) flash('⚠ CONEXIÓN PERDIDA… reconectando', 8000);

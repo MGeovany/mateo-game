@@ -156,7 +156,12 @@ const AudioFX = (() => {
         if (!synth) return;
         synth.cancel();
         const u = new SpeechSynthesisUtterance('¡Mateeeooo!');
-        const v = synth.getVoices().find((x) => /es[-_]/i.test(x.lang));
+        // Prefer an Argentine Spanish voice (closest we can get to a Messi-style
+        // accent — a true voice clone would need a real audio sample).
+        const voices = synth.getVoices();
+        const v = voices.find((x) => /es[-_]ar/i.test(x.lang)) ||
+                  voices.find((x) => /es[-_](419|mx|us|cl|uy)/i.test(x.lang)) ||
+                  voices.find((x) => /^es($|[-_])/i.test(x.lang));
         if (v) u.voice = v;
         u.lang = 'es-AR';
         u.rate = 0.8;   // drawn-out

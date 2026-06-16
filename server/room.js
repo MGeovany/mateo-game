@@ -511,6 +511,15 @@ function createRoom(code) {
         scheduleRevealClear(2200);
         break;
       }
+      case 'cosmetics': {
+        // A player changed their equipped look (shop). Update and re-render so
+        // the host's table/deck — which dresses the whole room — applies live.
+        const p = players[from];
+        if (!p) break;
+        p.cosmetics = cleanCosmetics(msg.cosmetics);
+        if (started) pushState(); else broadcastLobby();
+        break;
+      }
       case 'dance': {
         // Taunt: broadcast the chosen dance emoji (or the equipped one as a
         // fallback for bots). 8s cooldown so nobody floods the table.

@@ -253,6 +253,11 @@ const Economy = (() => {
     $('#screen-shop').classList.remove('active');
     $('#screen-lobby').classList.add('active');
     renderCoins();
+    // Push the (possibly newly equipped) look to the room so the host's table
+    // and deck dress everyone live, even when equipped after creating the room.
+    if (typeof Net !== 'undefined' && Net.sendToHost) {
+      Net.sendToHost({ t: 'action', a: 'cosmetics', cosmetics: cosmetics() });
+    }
   }
 
   document.addEventListener('DOMContentLoaded', () => {
