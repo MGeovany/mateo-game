@@ -20,10 +20,12 @@ const UNKNOWN_EST = 7; // expected value of a card the bot has never seen
 const DIFFICULTY = {
   facil:   { memProb: 0.55, react: [1500, 2800], think: [1200, 2200], burnChance: 0.40, mateoMax: 4, mateoAllKnown: true,  mateoMargin: 0, takeMax: 3, powerChance: 0.40, mistake: 0.30, danceChance: 0.30 },
   medio:   { memProb: 0.85, react: [800, 1500],  think: [800, 1500],  burnChance: 0.80, mateoMax: 6, mateoAllKnown: true,  mateoMargin: 1, takeMax: 4, powerChance: 0.70, mistake: 0.12, danceChance: 0.22 },
-  // Hard plays MATEO TIGHT: it only calls when it knows its whole hand, the
-  // hand is genuinely low, AND it is clearly ahead of every opponent (margin).
-  // Calling on a guessed hand was throwing rounds and made "hard" play easy.
-  dificil: { memProb: 1.00, react: [350, 800],   think: [450, 950],   burnChance: 0.97, mateoMax: 7, mateoAllKnown: true,  mateoMargin: 3, takeMax: 5, powerChance: 0.92, mistake: 0.00, danceChance: 0.18 },
+  // Hard knows its whole hand and never fumbles. It plays MATEO ADAPTIVELY:
+  // the safety margin scales with how blind it is to the leading opponent —
+  // it pounces when it can see their hand, stays cautious when it can't.
+  // It also grabs any discard that lowers its hand (takeSmart) and spies the
+  // most threatening opponent with the 8-power to sharpen those calls.
+  dificil: { memProb: 1.00, react: [150, 450],   think: [250, 600],   burnChance: 0.99, mateoMax: 8, mateoAllKnown: true,  mateoMargin: 3, mateoAdaptive: true, mateoUnknownPenalty: 1.5, takeMax: 5, takeSmart: true, powerChance: 0.97, mistake: 0.00, danceChance: 0.18 },
 };
 
 // Geeky reddit/X-style handles; bots show up as "CPU-<handle>"
@@ -119,27 +121,35 @@ function decideTurn(brain, state, me) {
   // Call MATEO when our hand is confidently low and likely the lowest
   const canMateo = (!cfg.mateoAllKnown || allKnown) && knownSum <= cfg.mateoMax;
   if (canMateo && !chance(cfg.mistake)) {
-    let minOpp = Infinity;
+    let minOpp = Infinity, minUnknown = 0;
     state.players.forEach((pl, idx) => {
       if (idx === me) return;
-      let est = 0;
+      let est = 0, unk = 0;
       pl.hand.forEach((c, i) => {
         if (c === null) return;
-        est += brain.has(idx, i) ? cardValue(brain.get(idx, i)) : UNKNOWN_EST;
+        if (brain.has(idx, i)) est += cardValue(brain.get(idx, i));
+        else { est += UNKNOWN_EST; unk++; }
       });
-      minOpp = Math.min(minOpp, est);
+      if (est < minOpp) { minOpp = est; minUnknown = unk; }
     });
     // Only call when clearly ahead: a tie or near-tie loses (caller must be the
-    // SOLE strictly-lowest hand), so require a difficulty-scaled safety margin.
-    if (myEst + (cfg.mateoMargin || 0) < minOpp) return { a: 'mateo' };
+    // SOLE strictly-lowest hand). Adaptive bots scale the margin with how blind
+    // they are to the LEADING opponent — zero buffer when we can see their whole
+    // hand, more for each card we're guessing at. Others use a flat margin.
+    const margin = cfg.mateoAdaptive
+      ? minUnknown * (cfg.mateoUnknownPenalty || 1.5)
+      : (cfg.mateoMargin || 0);
+    if (myEst + margin < minOpp) return { a: 'mateo' };
   }
 
-  // Grab the center card if it's low and we have a high card to dump it on
+  // Grab the center card if it lowers our hand. Smart bots take any card below
+  // our highest known one (a guaranteed swap-down); others cap it by takeMax.
   const top = state.discard[state.discard.length - 1];
   if (top && !chance(cfg.mistake)) {
     const dv = cardValue(top);
     const haveHigher = maxKnown && maxKnown.v > dv;
-    if (dv <= cfg.takeMax && (haveHigher || dv <= 3)) return { a: 'takeDiscard' };
+    if (haveHigher && (cfg.takeSmart || dv <= cfg.takeMax)) return { a: 'takeDiscard' };
+    if (dv <= 3) return { a: 'takeDiscard' };
   }
 
   return { a: 'draw' };
@@ -151,6 +161,7 @@ function decideDrawn(brain, state, me) {
   const dv = cardValue(drawn);
   const slots = ownSlots(state, me);
   const known = knownCards(brain, me, slots);
+  const allKnown = known.length === slots.length;
 
   // Drop a trio if we remember two more of the drawn rank
   const matches = known.filter((k) => k.rank === drawn.rank);
@@ -160,8 +171,10 @@ function decideDrawn(brain, state, me) {
   const maxKnown = highest(known);
   if (maxKnown && maxKnown.v > dv && !chance(cfg.mistake)) return { a: 'swap', i: maxKnown.i };
 
-  // High power cards are worth using for their ability, not keeping
-  if (['7', '8', '9'].includes(drawn.rank) && chance(cfg.powerChance)) return { a: 'usePower' };
+  // 8 (spy a rival) and 9 (spy + steal) are always worth their ability. The 7
+  // only peeks our OWN card, so it's wasted once we already know our whole hand.
+  const usefulPower = drawn.rank === '8' || drawn.rank === '9' || (drawn.rank === '7' && !allKnown);
+  if (usefulPower && chance(cfg.powerChance)) return { a: 'usePower' };
 
   // A very low card is worth gambling into an unknown slot
   if (dv <= 3) {
@@ -200,7 +213,17 @@ function decidePower8(brain, state, me) {
   const opps = opponentCards(state, me);
   if (!opps.length) return { a: 'cancel' };
   const unknown = opps.filter((o) => !brain.has(o.idx, o.i));
-  const pick = rand(unknown.length ? unknown : opps);
+  if (!unknown.length) { const pick = rand(opps); return { a: 'powerTarget', p: pick.idx, i: pick.i }; }
+  // Spy the most threatening rival (lowest estimated hand) — learning the cards
+  // that actually decide the round, which in turn sharpens our MATEO calls.
+  const est = {};
+  state.players.forEach((pl, idx) => {
+    if (idx === me) return;
+    let s = 0;
+    pl.hand.forEach((c, i) => { if (c !== null) s += brain.has(idx, i) ? cardValue(brain.get(idx, i)) : UNKNOWN_EST; });
+    est[idx] = s;
+  });
+  const pick = unknown.reduce((a, b) => (est[b.idx] < est[a.idx] ? b : a));
   return { a: 'powerTarget', p: pick.idx, i: pick.i };
 }
 
