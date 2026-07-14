@@ -788,8 +788,9 @@ const UI = (() => {
       case 'roundEnd':
         if (ev.reason === 'mateo') {
           // Cinematic: someone shouted MATEO → shout, drum roll, round winner,
-          // then jump straight to the results table.
-          playMateoSequence(() => showScores());
+          // then back to the revealed table — same as any other round end,
+          // the player studies everyone's cards and presses CONTINUAR ▶.
+          playMateoSequence(() => flash('¡Fin de ronda! Mira las cartas reveladas y pulsa CONTINUAR ▶', 5000));
         } else {
           AudioFX.win();
           flash('¡FIN DE RONDA! Mira las cartas y pulsa CONTINUAR ▶', 5000);
