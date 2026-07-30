@@ -849,6 +849,11 @@ html, body {
   border-color: #ff1a1a;
   box-shadow: 0 0 30px rgba(255,26,26,0.5), inset 0 0 60px rgba(0,0,0,0.65);
 }
+#table[data-theme="table-pink"] .table-circle {
+  background: radial-gradient(circle at 50% 38%, #6b1248 0%, #210317 65%);
+  border-color: #ff8bd1;
+  box-shadow: 0 0 34px rgba(255,42,157,0.55), inset 0 0 60px rgba(0,0,0,0.62);
+}
 
 /* Card-back themes via --deck-bg. The host's deck (#table) dresses the table
    and piles; your own seat overrides it with YOUR equipped deck, so the back
@@ -867,4 +872,7 @@ html, body {
 }
 #table[data-deck="cards-purple"], .seat[data-deck="cards-purple"] {
   --deck-bg: repeating-conic-gradient(#4b1a78 0% 25%, #8a3ddb 0% 50%) 0 0 / 12px 12px;
+}
+#table[data-deck="cards-pink"], .seat[data-deck="cards-pink"] {
+  --deck-bg: repeating-conic-gradient(#ff2a9d 0% 25%, #ff8bd1 0% 50%) 0 0 / 12px 12px;
 }

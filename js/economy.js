@@ -22,6 +22,15 @@ const Economy = (() => {
     { id: 'av-skull', cat: 'avatar', emoji: '💀', name: 'CALAVERA', price: 80 },
     { id: 'av-clown', cat: 'avatar', emoji: '🤡', name: 'PAYASO', price: 70 },
     { id: 'av-invader', cat: 'avatar', emoji: '👾', name: 'INVADER', price: 90 },
+    { id: 'av-flamingo', cat: 'avatar', emoji: '🦩', name: 'FLAMENCO ROSA', price: 70 },
+    { id: 'av-unicorn', cat: 'avatar', emoji: '🦄', name: 'UNICORNIO', price: 90 },
+    { id: 'av-octopus', cat: 'avatar', emoji: '🐙', name: 'PULPO', price: 70 },
+    { id: 'av-dragon', cat: 'avatar', emoji: '🐉', name: 'DRAGÓN', price: 100 },
+    { id: 'av-penguin', cat: 'avatar', emoji: '🐧', name: 'PINGÜINO', price: 60 },
+    { id: 'av-trex', cat: 'avatar', emoji: '🦖', name: 'T REX', price: 90 },
+    { id: 'av-ghost', cat: 'avatar', emoji: '👻', name: 'FANTASMA', price: 80 },
+    { id: 'av-monkey', cat: 'avatar', emoji: '🐵', name: 'MONO', price: 60 },
+    { id: 'av-shark', cat: 'avatar', emoji: '🦈', name: 'TIBURÓN', price: 80 },
     // hats
     { id: 'hat-none', cat: 'hat', emoji: '', name: 'SIN SOMBRERO', price: 0 },
     { id: 'hat-cap', cat: 'hat', emoji: '🧢', name: 'GORRA', price: 25 },
@@ -36,12 +45,6 @@ const Economy = (() => {
     { id: 'face-crazy', cat: 'face', emoji: '🤪', name: 'LOCO', price: 20 },
     { id: 'face-evil', cat: 'face', emoji: '😈', name: 'DIABLILLO', price: 30 },
     { id: 'face-sleepy', cat: 'face', emoji: '🥱', name: 'DORMIDO', price: 15 },
-    // shoes
-    { id: 'shoe-none', cat: 'shoes', emoji: '', name: 'DESCALZO', price: 0 },
-    { id: 'shoe-sneaker', cat: 'shoes', emoji: '👟', name: 'TENIS', price: 25 },
-    { id: 'shoe-boot', cat: 'shoes', emoji: '🥾', name: 'BOTAS', price: 25 },
-    { id: 'shoe-heel', cat: 'shoes', emoji: '👠', name: 'TACONES', price: 30 },
-    { id: 'shoe-cowboy', cat: 'shoes', emoji: '👢', name: 'VAQUERO', price: 30 },
     // dances (taunts shown to everyone mid-game)
     { id: 'dance-none', cat: 'dance', emoji: '', name: 'SIN BAILE', price: 0 },
     { id: 'dance-salsa', cat: 'dance', emoji: '💃', name: 'SALSA', price: 40 },
@@ -57,19 +60,20 @@ const Economy = (() => {
     { id: 'table-matrix', cat: 'table', emoji: '🟢', name: 'MATRIX', price: 90 },
     { id: 'table-gold', cat: 'table', emoji: '🟡', name: 'ORO', price: 120 },
     { id: 'table-blood', cat: 'table', emoji: '🔴', name: 'SANGRE', price: 100 },
+    { id: 'table-pink', cat: 'table', emoji: '🌸', name: 'ROSA NEÓN', price: 90 },
     // card back styles (host's deck)
     { id: 'cards-default', cat: 'cards', emoji: '🂠', name: 'AZUL CLÁSICO', price: 0 },
     { id: 'cards-red', cat: 'cards', emoji: '🟥', name: 'ROJO DIAMANTE', price: 50 },
     { id: 'cards-gold', cat: 'cards', emoji: '🟨', name: 'ORO REAL', price: 80 },
     { id: 'cards-matrix', cat: 'cards', emoji: '🟩', name: 'MATRIX', price: 70 },
     { id: 'cards-purple', cat: 'cards', emoji: '🟪', name: 'ESTRELLA PÚRPURA', price: 60 },
+    { id: 'cards-pink', cat: 'cards', emoji: '🌸', name: 'ROSADO NEÓN', price: 65 },
   ];
 
   const CATS = [
     { key: 'avatar', label: 'AVATAR' },
     { key: 'hat', label: 'SOMBRERO' },
     { key: 'face', label: 'CARA' },
-    { key: 'shoes', label: 'ZAPATOS' },
     { key: 'dance', label: 'BAILE' },
     { key: 'table', label: 'MESA' },
     { key: 'cards', label: 'CARTAS' },
@@ -92,8 +96,7 @@ const Economy = (() => {
       coins: 0,
       owned: [...FREE_IDS],
       equipped: {
-        avatar: 'av-default', hat: 'hat-none', face: 'face-none',
-        shoes: 'shoe-none', dance: 'dance-none',
+        avatar: 'av-default', hat: 'hat-none', face: 'face-none', dance: 'dance-none',
         table: 'table-default', cards: 'cards-default',
       },
       sharedRooms: [],
@@ -136,10 +139,10 @@ const Economy = (() => {
     return true;
   }
 
-  // What other players see: "🎩🤖😎👟" (hat + avatar + face + shoes)
+  // What other players see: "🎩🤖😎" (hat + avatar + face)
   function avatarString() {
     const e = wallet.equipped;
-    return ['hat', 'avatar', 'face', 'shoes']
+    return ['hat', 'avatar', 'face']
       .map((c) => (item(e[c]) || {}).emoji || '')
       .join('');
   }

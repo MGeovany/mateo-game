@@ -237,7 +237,7 @@ const UI = (() => {
     if (snap.drawn && !modalVisible()) {
       fCards.appendChild(cardEl(snap.drawn === true ? null : snap.drawn));
     } else {
-      fCards.innerHTML = '<div class="pile-empty">—</div>';
+      fCards.innerHTML = '<div class="pile-empty">·</div>';
     }
   }
 
@@ -797,7 +797,7 @@ const UI = (() => {
         }
         break;
       case 'left':
-        flash(`⚠ ${name(ev.player)} SE DESCONECTÓ — puede volver a entrar con su nombre y el código`, 6000);
+        flash(`⚠ ${name(ev.player)} SE DESCONECTÓ, puede volver a entrar con su nombre y el código`, 6000);
         break;
       case 'rejoined':
         AudioFX.power();

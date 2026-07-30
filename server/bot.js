@@ -37,24 +37,23 @@ const HANDLES = [
   'ratio_d', 'touch_grass', 'gg_ez', 'no_cap_fr', 'sigma_dev', 'gigachad99',
 ];
 
-const AVATARS = ['🤖', '👽', '🐸', '🐱', '🦊', '💀', '🤡', '👾'];
+const AVATARS = ['🤖', '👽', '🐸', '🐱', '🦊', '💀', '🤡', '👾', '🦩', '🦄', '🐙', '🐉', '🐧', '🦖', '👻', '🐵', '🦈'];
 const HATS = ['', '🧢', '🎩', '🎓', '🪖', '👑'];
 const FACES = ['', '😎', '😤', '🤪', '😈', '🥱'];
-const SHOES = ['', '👟', '🥾', '👠', '👢'];
 const DANCES = ['💃', '🕺', '🦆', '🐔', '🪩', '🫏'];
-const TABLES = ['table-default', 'table-ocean', 'table-matrix', 'table-gold', 'table-blood'];
-const CARDS = ['cards-default', 'cards-red', 'cards-gold', 'cards-matrix', 'cards-purple'];
+const TABLES = ['table-default', 'table-ocean', 'table-matrix', 'table-gold', 'table-blood', 'table-pink'];
+const CARDS = ['cards-default', 'cards-red', 'cards-gold', 'cards-matrix', 'cards-purple', 'cards-pink'];
 
 function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function rint(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
 function chance(p) { return Math.random() < p; }
 
-function randomName() { return 'CPU-' + rand(HANDLES); }
+function randomName() { return 'CPU ' + rand(HANDLES); }
 
-// Everything unlocked: a random full cosmetic set (hat+avatar+face+shoes,
+// Everything unlocked: a random full cosmetic set (hat+avatar+face,
 // plus a dance, table theme and card back).
 function randomCosmetics() {
-  const avatar = [rand(HATS), rand(AVATARS), rand(FACES), rand(SHOES)].join('');
+  const avatar = [rand(HATS), rand(AVATARS), rand(FACES)].join('');
   return { avatar, dance: rand(DANCES), table: rand(TABLES), cards: rand(CARDS) };
 }
 

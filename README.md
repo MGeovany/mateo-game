@@ -4,7 +4,7 @@
 
 Acumular **la menor cantidad de puntos**. Todos empiezan en **0** y, al terminar cada ronda, suman puntos según las cartas que les quedan. **El primer jugador que llega a 100 puntos pierde**; gana quien tenga el total más bajo en ese momento. Los puntos se acumulan a lo largo de toda la partida (no se reinician entre rondas).
 
-**Valor de las cartas:** A=1, 2–10 su número, J=11, Q=12, K=13. La **Q♥** es comodín y vale **0**.
+**Valor de las cartas:** A=1, de 2 a 10 su número, J=11, Q=12, K=13. La **Q♥** es comodín y vale **0**.
 
 ## 🎮 Flujo base
 
