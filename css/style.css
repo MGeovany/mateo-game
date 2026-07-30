@@ -668,6 +668,16 @@ html, body {
 .lobby-footer { display: flex; gap: 10px; justify-content: center; }
 .btn-shop { border-color: var(--neon-yellow); color: var(--neon-yellow); }
 .btn-shop .coin-balance { color: var(--neon-yellow); }
+.shop-news {
+  margin: 10px 0 0;
+  font-size: 7px;
+  color: var(--neon-pink);
+  text-shadow: 0 0 8px var(--neon-pink);
+  animation: shop-news-blink 1.1s steps(2, end) infinite;
+}
+@keyframes shop-news-blink {
+  50% { opacity: 0.25; }
+}
 
 .coin-toast {
   position: fixed;
